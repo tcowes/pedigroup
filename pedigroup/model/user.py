@@ -17,3 +17,6 @@ class User:
         if not self.groups.__contains__(group):
             raise CannotBeRemovedException("No se puede remover un grupo al cual un usuario no pertenece")
         self.groups.remove(group)
+
+    def groupsQuantity(self):
+        return self.groups.__len__()
