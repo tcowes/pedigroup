@@ -15,6 +15,9 @@ class Group:
             raise CannotBeRemovedException("No se puede remover un usuario el cual no pertenece al grupo")
         self.users.remove(user)
 
+    def addOrder(self, order):
+        self.orders.append(order)
+
     def usersQuantity(self):
         return self.users.__len__()
     
