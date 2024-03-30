@@ -1,4 +1,4 @@
-class Pasty:
+class Empanada:
 
     def __init__(self, type, restaurant):
         self.type = type
