@@ -9,20 +9,20 @@ class TestUser(unittest.TestCase):
         self.user = User("Lucas", "Ziegemann", "lziege", 1147454554, 1)
         self.group = Group("Epersonal")
     
-    def test_un_usuario_es_creado_sin_grupos(self):
+    def test_a_user_is_created_without_groups(self):
         self.assertEqual(self.user.groupsQuantity(), 0)
 
-    def test_un_usuario_tiene_un_grupo_luego_de_añadirsele_uno(self):
+    def test_a_user_has_a_group_after_adding_one_to_it(self):
         self.user.addGroup(self.group)
         self.assertEqual(self.user.groupsQuantity(), 1)
 
-    def test_un_usuario_no_tiene_grupos_luego_de_eliminar_uno_al_que_fue_añadido_previamente(self):
+    def test_a_user_has_no_groups_after_deleting_one_that_was_added_previously(self):
         self.user.addGroup(self.group)
         self.assertEqual(self.user.groupsQuantity(), 1)
         self.user.removeGroup(self.group)
         self.assertEqual(self.user.groupsQuantity(), 0)
 
-    def test_al_intentar_eliminar_un_grupo_de_un_usuario_al_cual_no_pertenecia_se_lanza_excepcion(self):
+    def test_when_trying_to_remove_a_group_of_a_user_to_which_it_did_not_belong_an_exception_is_thrown(self):
         with self.assertRaises(CannotBeRemovedException):
             self.user.removeGroup(self.group)
     
