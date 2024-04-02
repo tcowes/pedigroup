@@ -1,4 +1,4 @@
-from model.exceptions.cannotBeRemovedException import CannotBeRemovedException
+from pedigroup.model.exceptions.cannot_be_removed_exception import CannotBeRemovedException
 
 class Group:
 
@@ -7,19 +7,19 @@ class Group:
         self.users = set()
         self.orders = list()
 
-    def addUser(self, user):
+    def add_user(self, user):
         self.users.add(user)
 
-    def removeUser(self, user):
-        if not self.users.__contains__(user):
+    def remove_user(self, user):
+        if user not in self.users:
             raise CannotBeRemovedException("No se puede remover un usuario el cual no pertenece al grupo")
         self.users.remove(user)
 
-    def addOrder(self, order):
+    def add_order(self, order):
         self.orders.append(order)
 
-    def usersQuantity(self):
-        return self.users.__len__()
+    def users_quantity(self):
+        return len(self.users)
     
-    def ordersQuantity(self):
-        return self.orders.__len__()
+    def orders_quantity(self):
+        return len(self.orders)

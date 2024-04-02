@@ -5,11 +5,9 @@ class Order:
         self.empanadas = list()
         self.totalQuantity = 0
 
-    def addEmpanadas(self, empanada, quantity):
+    def add_empanadas(self, empanada, quantity):
         if quantity < 0:
             raise ValueError("La cantidad a añadir no puede ser negativa")
-        count: int = quantity
-        while count != 0:
+        for i in range(1, quantity):
             self.empanadas.append(empanada)
-            self.totalQuantity += 1
-            count -= 1
+        self.totalQuantity += quantity

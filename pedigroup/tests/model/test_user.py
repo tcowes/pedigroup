@@ -1,7 +1,7 @@
 import unittest
 from model.user import User
 from model.group import Group
-from model.exceptions.cannotBeRemovedException import CannotBeRemovedException
+from pedigroup.model.exceptions.cannot_be_removed_exception import CannotBeRemovedException
 
 class TestUser(unittest.TestCase):
 
@@ -10,21 +10,21 @@ class TestUser(unittest.TestCase):
         self.group = Group("Epersonal")
     
     def test_a_user_is_created_without_groups(self):
-        self.assertEqual(self.user.groupsQuantity(), 0)
+        self.assertEqual(self.user.groups_quantity(), 0)
 
     def test_a_user_has_a_group_after_adding_one_to_it(self):
-        self.user.addGroup(self.group)
-        self.assertEqual(self.user.groupsQuantity(), 1)
+        self.user.add_group(self.group)
+        self.assertEqual(self.user.groups_quantity(), 1)
 
     def test_a_user_has_no_groups_after_deleting_one_that_was_added_previously(self):
-        self.user.addGroup(self.group)
-        self.assertEqual(self.user.groupsQuantity(), 1)
-        self.user.removeGroup(self.group)
-        self.assertEqual(self.user.groupsQuantity(), 0)
+        self.user.add_group(self.group)
+        self.assertEqual(self.user.groups_quantity(), 1)
+        self.user.remove_group(self.group)
+        self.assertEqual(self.user.groups_quantity(), 0)
 
     def test_when_trying_to_remove_a_group_of_a_user_to_which_it_did_not_belong_an_exception_is_thrown(self):
         with self.assertRaises(CannotBeRemovedException):
-            self.user.removeGroup(self.group)
+            self.user.remove_group(self.group)
     
 if __name__ == '__main__':
     unittest.main()
