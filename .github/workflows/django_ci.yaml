@@ -26,5 +26,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     - name: Run Tests
+      env: 
+        SECRET_KEY: 3a5f77d592da87531be6938b2c867c88bd0cd7948a81ad9b97  # dummy
       run: |
         python pedigroup/manage.py test
