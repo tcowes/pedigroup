@@ -1,10 +1,9 @@
 from .exceptions import CannotBeRemovedException
+from django.db import models
 
-class Empanada:
-
-    def __init__(self, type, restaurant):
-        self.type = type
-        self.restaurant = restaurant
+class Empanada(models.Model):
+    type = models.CharField(max_length=30)
+    restaurant = models.CharField(max_length=30)
 
 
 class Group:
