@@ -29,5 +29,5 @@ jobs:
       env: 
         SECRET_KEY: 3a5f77d592da87531be6938b2c867c88bd0cd7948a81ad9b97  # dummy
       run: |
-        python pedigroup/manage.py migrate --settings=pedigroup.testing_settings
-        python pedigroup/manage.py test pedigroup --settings=pedigroup.testing_settings
+        python src/manage.py migrate --settings=pedigroup.testing_settings
+        python src/manage.py test backend --settings=pedigroup.testing_settings
