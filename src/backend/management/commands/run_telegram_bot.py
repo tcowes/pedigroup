@@ -1,8 +1,8 @@
 from collections import defaultdict
 from typing import Dict
-import environ
-env = environ.Env()
-environ.Env.read_env()
+
+from django.conf import settings
+from backend.models import Empanada
 
 import logging
 from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -16,7 +16,7 @@ from telegram.ext import (
     filters,
 )
 
-BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
+from django.core.management.base import BaseCommand
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -25,6 +25,14 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = "Start telegram bot"
+
+    def handle(self, *args, **options):
+        start_bot()
 
 # Variable global para trackear el estado de un pedido.
 order_started = False
@@ -90,7 +98,8 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Este comando solo puede llamarse desde un chat privado.")
         return
     
-    empanada_variety = ["Jamón y Queso", "Carne", "Verdura", "Pollo"]  # TODO: traer de la DB
+    # Hacemos un select asíncrono... no es lo ideal, tenemos que investigar como poder hacer esto fuera del contexto.
+    empanada_variety = [emp async for emp in Empanada.objects.all().values_list("type", flat=True)]
     keyboard = []
     for empanada_type in empanada_variety:
         keyboard.append([InlineKeyboardButton(empanada_type, callback_data=empanada_type)])
@@ -130,8 +139,8 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+def start_bot():
+    application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
     
     application.add_handler(CommandHandler("iniciar_pedido", start_order))
     application.add_handler(CommandHandler("finalizar_pedido", finish_order))

@@ -34,20 +34,20 @@ PediGroup es un bot de Telegram con el que las personas van a poder interactuar,
     ```powershell
     pip install -r .\requirements.txt
     ```
-- Copiar el archivo *.env.example* dentro de la carpeta .\pedigroup y pegarlo sin la extensión *.example*, reemplazando con los datos para la conexión a la DB.
-- Levantar el servidor de Django:
-    ```powershell
-    python .\pedigroup\manage.py runserver
-    ```
 - Generar un token para el bot de Telegram con [@BotFather](https://core.telegram.org/bots/features#botfather)
-- Copiar el archivo *.env.example* dentro de la carpeta .\pedigroup\telegram_integration y pegarlo sin la extensión *.example*, reemplazando con el token generado en el paso anterior.
+- Copiar el archivo *.env.example* dentro de la carpeta .\pedigroup y pegarlo sin la extensión *.example*, reemplazando con los datos para la conexión a la DB y el token del bot.
+- Pararse dentro de /src y levantar el servidor de Django:
+    ```powershell
+    python manage.py runserver
+    ```
 - Levantar el bot en una terminal separada:
     ```powershell
-    python .\pedigroup\telegram_integration\bot.py
+    python manage.py run_telegram_bot
     ```
 
 ### ¿Para qué público está pensado?
 PediGroup está pensado en principio para toda persona que utilice Telegram como herramienta de comunicación en grupo, que necesite armar pedidos de comida masivos.
 
 ### ¿Qué módulos incluye en una primera etapa y cómo se extendería a futuro?
-A definir.
+Este proyecto apunta a dejar configurado todo el backend para gestionar pedidos de comida en grupo, junto con una integración inicial para bots de Telegram. La
+idea es que pueda extenderse mediante integraciones a otros servicios de mensajería grupal, como WhatsApp, Discord, entre otros.
