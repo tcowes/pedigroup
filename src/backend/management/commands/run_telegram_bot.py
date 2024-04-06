@@ -37,7 +37,7 @@ class Command(BaseCommand):
 # Variable global para trackear el estado de un pedido.
 order_started = False
 # Variable global para ir almacenando el pedido
-current_order: Dict[int, Dict[str, int]] = defaultdict(lambda: defaultdict(lambda: 0))
+current_order: Dict[int, Dict[str, int]] = {}
 
 TYPE_SELECTION, QUANTITY = range(2)
 
@@ -56,7 +56,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     user = update.message.from_user
     group_id = update.message.chat_id
     
-    logger.debug(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
+    logger.info(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
 
     global order_started
     global current_order
@@ -128,14 +128,19 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     empanada_type = context.user_data['empanada_type']
     user = update.message.from_user
 
+    if current_order.get(user.id) and current_order[user.id].get(empanada_type):
+        current_order[user.id][empanada_type] += quantity
+    elif current_order.get(user.id) and not current_order[user.id].get(empanada_type):
+        current_order[user.id][empanada_type] = quantity
+    else:
+        current_order[user.id] = {empanada_type: quantity}
+
+    logger.info(f"{user.first_name} ({user.id}) added {quantity} {empanada_type}")
     await update.message.reply_text(
         f"Agregué {quantity} de {empanada_type} al pedido grupal!"
         "\n\nSi querés seguir agregando empanadas podes volver a pedir con /pedido_individual."
         "\nSi nadie mas quiere agregar pedidos, pueden finalizar el pedido desde el grupo con /finalizar_pedido."
     )
-
-    logger.debug(f"{user.first_name} ({user.id}) added {quantity} {empanada_type}")
-    current_order[user.id][empanada_type] += quantity
 
     return ConversationHandler.END
 
