@@ -5,11 +5,16 @@ from django.db import migrations
 
 def crear_objetos(apps, schema_editor):
     Empanada = apps.get_model("backend", "Empanada")
-    Empanada.objects.all().delete()
     empanada1 = Empanada(type="Pollo", restaurant="Eden")
     empanada1.save()
     empanada2 = Empanada(type="Verdura", restaurant="Eden")
     empanada2.save()
+    empanada3 = Empanada(type="Carne", restaurant="Eden")
+    empanada3.save()
+    empanada4 = Empanada(type="Jamon y Queso", restaurant="Eden")
+    empanada4.save()
+    empanada5 = Empanada(type="Humita", restaurant="Eden")
+    empanada5.save()
 
 
 def eliminar_objetos(apps, schema_editor):
