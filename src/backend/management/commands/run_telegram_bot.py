@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Dict
 
 from django.conf import settings
-from backend.models import Empanada
+from backend.models import Product
 
 import logging
 from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -63,7 +63,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     match starting_order, order_started:
         case True, False:
             message = (
-                f"{user.first_name} inició un pedido de empanadas!"
+                f"{user.first_name} inició un pedido!"
                 "\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
                 "con el comando /pedido_individual."
             )
@@ -99,46 +99,53 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Hacemos un select asíncrono... no es lo ideal, tenemos que investigar como poder hacer esto fuera del contexto.
-    empanada_variety = [emp async for emp in Empanada.objects.all().values_list("type", flat=True)]
+    product_names = [prod async for prod in Product.objects.all().values_list("name", flat=True)]
     keyboard = []
-    for empanada_type in empanada_variety:
-        keyboard.append([InlineKeyboardButton(empanada_type, callback_data=empanada_type)])
+    for product_name in product_names:
+        keyboard.append([InlineKeyboardButton(product_name, callback_data=product_name)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Seleccioná que gusto de empanada te gustaría pedir:", reply_markup=reply_markup)
+    await update.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
 
     return TYPE_SELECTION
 
 
 async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    empanada_type = query.data
+    product_name = query.data
     await query.answer()
 
-    context.user_data['empanada_type'] = empanada_type
-    await query.message.reply_text(f"¿Cuantas empanadas de {empanada_type} quisieras pedir? Escribí solamente el número:")
+    context.user_data['product_name'] = product_name
+
+    keyboard = []
+    for i in range(1, 10):
+        keyboard.append([InlineKeyboardButton(i, callback_data=i)])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text(f"¿Cuantas {product_name} quisieras pedir?", reply_markup=reply_markup)
 
     return QUANTITY
 
 
 async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    quantity = int(update.message.text)
+    query = update.callback_query
+    quantity = int(query.data)
 
     context.user_data['quantity'] = quantity
-    empanada_type = context.user_data['empanada_type']
-    user = update.message.from_user
+    product_name = context.user_data['product_name']
+    user = query.from_user
 
-    if current_order.get(user.id) and current_order[user.id].get(empanada_type):
-        current_order[user.id][empanada_type] += quantity
-    elif current_order.get(user.id) and not current_order[user.id].get(empanada_type):
-        current_order[user.id][empanada_type] = quantity
+    if current_order.get(user.id) and current_order[user.id].get(product_name):
+        current_order[user.id][product_name] += quantity
+    elif current_order.get(user.id) and not current_order[user.id].get(product_name):
+        current_order[user.id][product_name] = quantity
     else:
-        current_order[user.id] = {empanada_type: quantity}
+        current_order[user.id] = {product_name: quantity}
 
-    logger.info(f"{user.first_name} ({user.id}) added {quantity} {empanada_type}")
-    await update.message.reply_text(
-        f"Agregué {quantity} de {empanada_type} al pedido grupal!"
-        "\n\nSi querés seguir agregando empanadas podes volver a pedir con /pedido_individual."
+    logger.info(f"{user.first_name} ({user.id}) added {quantity} {product_name}")
+    await query.message.reply_text(
+        f"Agregué {quantity} {product_name} al pedido grupal!"
+        "\n\nSi querés seguir agregando productos podes volver a pedir con /pedido_individual."
         "\nSi nadie mas quiere agregar pedidos, pueden finalizar el pedido desde el grupo con /finalizar_pedido."
     )
 
@@ -154,7 +161,7 @@ def start_bot():
         entry_points=[CommandHandler("pedido_individual", show_menu)],
         states={
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection)],
-            QUANTITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_quantity)],
+            QUANTITY: [CallbackQueryHandler(handle_quantity)],
         },
         fallbacks=[],
     )
