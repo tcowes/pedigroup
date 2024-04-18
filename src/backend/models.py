@@ -41,7 +41,7 @@ class Order:
     def add_products(self, product, quantity):
         if quantity < 0:
             raise ValueError("La cantidad a añadir no puede ser negativa")
-        for i in range(1, quantity):
+        for i in range(0, quantity):
             self.products.append(product)
         self.totalQuantity += quantity
 
