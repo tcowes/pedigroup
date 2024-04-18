@@ -1,8 +1,8 @@
 from .exceptions import CannotBeRemovedException
 from django.db import models
 
-class Empanada(models.Model):
-    type = models.CharField(max_length=30)
+class Product(models.Model):
+    name = models.CharField(max_length=30)
     restaurant = models.CharField(max_length=30)
 
 
@@ -35,14 +35,14 @@ class Order:
 
     def __init__(self, group):
         self.group = group
-        self.empanadas = list()
+        self.products = list()
         self.totalQuantity = 0
 
-    def add_empanadas(self, empanada, quantity):
+    def add_products(self, product, quantity):
         if quantity < 0:
             raise ValueError("La cantidad a añadir no puede ser negativa")
         for i in range(1, quantity):
-            self.empanadas.append(empanada)
+            self.products.append(product)
         self.totalQuantity += quantity
 
 
