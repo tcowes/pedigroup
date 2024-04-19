@@ -63,6 +63,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
 
     global order_started
     global current_order
+    reply_markup = InlineKeyboardMarkup([])
     match starting_order, order_started:
         case True, False:
             message = (
@@ -70,6 +71,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
                 "\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
                 "con el comando /pedido_individual."
             )
+            reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Contactar bot", url=f"tg://user?id={context.bot.id}")]])
             order_started = True
         case True, True:
             message = "Ya hay un pedido en curso, finalizar con /finalizar_pedido"
@@ -81,7 +83,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
         case False, False:
             message = "No hay ningún pedido en curso, iniciar uno nuevo con /iniciar_pedido"
 
-    await context.bot.send_message(group_id, message)
+    await context.bot.send_message(group_id, message, reply_markup=reply_markup)
 
 
 async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
