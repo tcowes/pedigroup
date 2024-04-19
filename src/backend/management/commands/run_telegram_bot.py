@@ -124,7 +124,7 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard.append([InlineKeyboardButton(i, callback_data=i)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(f"¿Cuantas {product_name} quisieras pedir?", reply_markup=reply_markup)
+    await query.message.reply_text(f"Ingrese la cantidad de {product_name.lower()} que quisieras pedir:", reply_markup=reply_markup)
 
     return QUANTITY
 
@@ -146,9 +146,9 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) added {quantity} {product_name}")
     await query.message.reply_text(
-        f"Agregué {quantity} {product_name} al pedido grupal!"
+        f"Agregué {quantity} {product_name.lower()} al pedido grupal!"
         "\n\nSi querés seguir agregando productos podes volver a pedir con /pedido_individual."
-        "\nSi nadie mas quiere agregar pedidos, pueden finalizar el pedido desde el grupo con /finalizar_pedido."
+        "\nSi nadie mas quiere agregar productos, pueden finalizar el pedido desde el grupo con /finalizar_pedido."
     )
 
     return ConversationHandler.END
