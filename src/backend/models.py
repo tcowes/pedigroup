@@ -46,15 +46,13 @@ class Order:
         self.totalQuantity += quantity
 
 
-class User:
-
-    def __init__(self, first_name, last_name, username, phone, id_app):
-        self.first_name = first_name
-        self.last_name = last_name
-        self.username = username
-        self.phone = phone
-        self.id_app = id_app
-        self.groups = set()
+class User(models.Model):
+    first_name = models.CharField(max_length=30)
+    last_name = models.CharField(max_length=30)
+    username = models.CharField(max_length=30)
+    phone = models.BigIntegerField()
+    id_app = models.BigIntegerField()
+    groups = set()
 
     def add_group(self, group):
         self.groups.add(group)

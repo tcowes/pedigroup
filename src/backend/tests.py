@@ -1,3 +1,4 @@
+from venv import logger
 from django.test import TestCase
 
 from .models import Order, Group, Product, User
@@ -38,7 +39,7 @@ class TestOrder(TestCase):
     def setUp(self):
         group = Group("Epersonal")
         self.order = Order(group)
-        self.product = Product("Empanada de carne", "Unq King")
+        self.product = Product(name="Empanada de carne", restaurant="Unq King")
     
     def test_an_order_is_created_without_food_to_order(self):
         self.assertEqual(self.order.totalQuantity, 0)
@@ -55,7 +56,8 @@ class TestOrder(TestCase):
 class TestUser(TestCase):
 
     def setUp(self):
-        self.user = User("Lucas", "Ziegemann", "lziege", 1147454554, 1)
+        self.user = User(first_name="Lucas", last_name="Ziegemann", 
+                         username="lziege", phone=1147454554, id_app=1)
         self.group = Group("Epersonal")
     
     def test_a_user_is_created_without_groups(self):
@@ -64,6 +66,7 @@ class TestUser(TestCase):
     def test_a_user_has_a_group_after_adding_one_to_it(self):
         self.user.add_group(self.group)
         self.assertEqual(self.user.groups_quantity(), 1)
+        self.user.groups.pop()
 
     def test_a_user_has_no_groups_after_deleting_one_that_was_added_previously(self):
         self.user.add_group(self.group)
