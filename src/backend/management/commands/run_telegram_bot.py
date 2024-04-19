@@ -120,8 +120,10 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data['product_name'] = product_name
 
     keyboard = []
-    for i in range(1, 10):
-        keyboard.append([InlineKeyboardButton(i, callback_data=i)])
+    for i in range(1, 10, 3):
+        keyboard.append([InlineKeyboardButton(i, callback_data=i), 
+                         InlineKeyboardButton(i+1, callback_data=i+1),
+                         InlineKeyboardButton(i+2, callback_data=i+2)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.message.reply_text(f"Ingrese la cantidad de {product_name.lower()} que quisieras pedir:", reply_markup=reply_markup)
