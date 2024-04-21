@@ -25,7 +25,7 @@ def eliminar_objetos(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('backend', '0002_user'),
+        ('backend', '0001_initial'),
     ]
 
     operations = [

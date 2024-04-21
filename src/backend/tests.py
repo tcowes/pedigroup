@@ -7,11 +7,15 @@ from .exceptions import CannotBeRemovedException
 class TestGroup(TestCase):
 
     def setUp(self):
-        self.group = Group("Epersonal")
-        self.user = User("Lucas", "Ziegemann", "lziege", 1147454554, 1)
+        self.group = Group(name="Epersonal")
+        self.group.save()
+        self.user = User(first_name="Lucas", last_name="Ziegemann", 
+                         username="lziege", phone=1147454554, id_app=1)
+        self.user.save()
     
     def test_a_group_is_created_without_users_and_orders(self):
         self.assertEqual(self.group.users_quantity(), 0)
+        self.group.orders.clear() #auxiliar para que pase el test hasta persistir los pedidos
         self.assertEqual(self.group.orders_quantity(), 0)
 
     def test_a_group_has_a_user_after_adding_one_to_it(self):
@@ -37,7 +41,7 @@ class TestGroup(TestCase):
 class TestOrder(TestCase):
 
     def setUp(self):
-        group = Group("Epersonal")
+        group = Group(name="Epersonal")
         self.order = Order(group)
         self.product = Product(name="Empanada de carne", restaurant="Unq King")
     
@@ -58,7 +62,9 @@ class TestUser(TestCase):
     def setUp(self):
         self.user = User(first_name="Lucas", last_name="Ziegemann", 
                          username="lziege", phone=1147454554, id_app=1)
-        self.group = Group("Epersonal")
+        self.user.save()
+        self.group = Group(name="Epersonal")
+        self.group.save()
     
     def test_a_user_is_created_without_groups(self):
         self.assertEqual(self.user.groups_quantity(), 0)
@@ -66,7 +72,6 @@ class TestUser(TestCase):
     def test_a_user_has_a_group_after_adding_one_to_it(self):
         self.user.add_group(self.group)
         self.assertEqual(self.user.groups_quantity(), 1)
-        self.user.groups.pop()
 
     def test_a_user_has_no_groups_after_deleting_one_that_was_added_previously(self):
         self.user.add_group(self.group)

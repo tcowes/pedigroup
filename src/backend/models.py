@@ -6,18 +6,16 @@ class Product(models.Model):
     restaurant = models.CharField(max_length=30)
 
 
-class Group:
-
-    def __init__(self, name):
-        self.name = name
-        self.users = set()
-        self.orders = list()
+class Group(models.Model):
+    name = models.CharField(max_length=30)
+    users = models.ManyToManyField("User")
+    orders = list()
 
     def add_user(self, user):
         self.users.add(user)
 
     def remove_user(self, user):
-        if user not in self.users:
+        if user not in self.users.all():
             raise CannotBeRemovedException("No se puede remover un usuario el cual no pertenece al grupo")
         self.users.remove(user)
 
@@ -25,7 +23,7 @@ class Group:
         self.orders.append(order)
 
     def users_quantity(self):
-        return len(self.users)
+        return self.users.count()
     
     def orders_quantity(self):
         return len(self.orders)
@@ -52,15 +50,15 @@ class User(models.Model):
     username = models.CharField(max_length=30)
     phone = models.BigIntegerField()
     id_app = models.BigIntegerField()
-    groups = set()
+    groups = models.ManyToManyField(Group)
 
     def add_group(self, group):
         self.groups.add(group)
 
     def remove_group(self, group):
-        if group not in self.groups:
+        if group not in self.groups.all():
             raise CannotBeRemovedException("No se puede remover un grupo al cual un usuario no pertenece")
         self.groups.remove(group)
 
     def groups_quantity(self):
-        return len(self.groups)
+        return self.groups.count()
