@@ -169,7 +169,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get('conversation_started', False):
         context.user_data['conversation_started'] = True
-        await context.bot.send_message(update.effective_chat.id, "Bienvenido a PediGroup, para registrar un pedido debes usar el comando /pedido_individual.")
+        await update.message.reply_text("Bienvenido a PediGroup, para registrar un pedido debes usar el comando /pedido_individual.")
     return ConversationHandler.END
 
 
