@@ -1,4 +1,3 @@
-from venv import logger
 from django.test import TestCase
 
 from .models import Order, Group, Product, User
@@ -7,10 +6,10 @@ from .exceptions import CannotBeRemovedException
 class TestGroup(TestCase):
 
     def setUp(self):
-        self.group = Group(name="Epersonal")
+        self.group = Group(name="Epersonal", id_app=1)
         self.group.save()
         self.user = User(first_name="Lucas", last_name="Ziegemann", 
-                         username="lziege", phone=1147454554, id_app=1)
+                         username="lziege", id_app=1)
         self.user.save()
     
     def test_a_group_is_created_without_users_and_orders(self):
@@ -41,7 +40,7 @@ class TestGroup(TestCase):
 class TestOrder(TestCase):
 
     def setUp(self):
-        group = Group(name="Epersonal")
+        group = Group(name="Epersonal", id_app=1)
         self.order = Order(group)
         self.product = Product(name="Empanada de carne", restaurant="Unq King")
     
@@ -61,9 +60,9 @@ class TestUser(TestCase):
 
     def setUp(self):
         self.user = User(first_name="Lucas", last_name="Ziegemann", 
-                         username="lziege", phone=1147454554, id_app=1)
+                         username="lziege", id_app=1)
         self.user.save()
-        self.group = Group(name="Epersonal")
+        self.group = Group(name="Epersonal", id_app=1)
         self.group.save()
     
     def test_a_user_is_created_without_groups(self):

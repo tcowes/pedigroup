@@ -9,6 +9,7 @@ class Product(models.Model):
 class Group(models.Model):
     name = models.CharField(max_length=30)
     users = models.ManyToManyField("User")
+    id_app = models.BigIntegerField()
     orders = list()
 
     def add_user(self, user):
@@ -48,7 +49,6 @@ class User(models.Model):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     username = models.CharField(max_length=30)
-    phone = models.BigIntegerField()
     id_app = models.BigIntegerField()
     groups = models.ManyToManyField(Group)
 

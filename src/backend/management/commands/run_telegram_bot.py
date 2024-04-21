@@ -4,7 +4,7 @@ import os
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 from django.conf import settings
-from backend.models import Product, User
+from backend.models import Group, Product, User
 
 import logging
 from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -56,8 +56,9 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
         await update.message.reply_text("Este comando solo puede llamarse desde un grupo.")
         return
 
+    group = update.message.chat
     user = update.message.from_user
-    registrar_si_debe(user)
+    registrar_grupo_y_usuario_si_debe(group, user)
     group_id = update.message.chat_id
     
     logger.info(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
@@ -145,7 +146,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['quantity'] = quantity
     product_name = context.user_data['product_name']
     user = query.from_user
-    registrar_si_debe(user)
+    registrar_usuario_si_debe(user)
 
     if current_order.get(user.id) and current_order[user.id].get(product_name):
         current_order[user.id][product_name] += quantity
@@ -194,7 +195,13 @@ def start_bot():
     application.run_polling()
 
 
-def registrar_si_debe(user):
+def registrar_grupo_y_usuario_si_debe(group, user):
+    if not Group.objects.filter(id_app__contains=group.id).exists():
+        Group.objects.create(name=group.title, id_app=group.id)
+    registrar_usuario_si_debe(user)
+
+
+def registrar_usuario_si_debe(user):
     if not User.objects.filter(id_app__contains=user.id).exists():
         User.objects.create(first_name=user.first_name, last_name=user.last_name, 
-                            username=user.username, phone=1147454554, id_app=user.id)
+                            username=user.username, id_app=user.id)
