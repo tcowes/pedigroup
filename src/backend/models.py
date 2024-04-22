@@ -1,4 +1,5 @@
 from .exceptions import CannotBeRemovedException
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 class Product(models.Model):
@@ -10,7 +11,7 @@ class Group(models.Model):
     name = models.CharField(max_length=30)
     users = models.ManyToManyField("User")
     id_app = models.BigIntegerField()
-    orders = list()
+    orders = models.ManyToManyField("Order")
 
     def add_user(self, user):
         self.users.add(user)
@@ -21,28 +22,27 @@ class Group(models.Model):
         self.users.remove(user)
 
     def add_order(self, order):
-        self.orders.append(order)
+        self.orders.add(order)
 
     def users_quantity(self):
         return self.users.count()
     
     def orders_quantity(self):
-        return len(self.orders)
+        return self.orders.count()
 
 
-class Order:
-
-    def __init__(self, group):
-        self.group = group
-        self.products = list()
-        self.totalQuantity = 0
+class Order(models.Model):
+    products = models.ManyToManyField(Product)
+    quantities = ArrayField(models.IntegerField(), default=list)
+    totalQuantity = models.BigIntegerField(default=0)
 
     def add_products(self, product, quantity):
-        if quantity < 0:
-            raise ValueError("La cantidad a añadir no puede ser negativa")
-        for i in range(0, quantity):
-            self.products.append(product)
+        if quantity <= 0:
+            raise ValueError("La cantidad a añadir no puede ser menor a 1")
+        self.products.add(product)
+        self.quantities.append(quantity)
         self.totalQuantity += quantity
+        self.save()
 
 
 class User(models.Model):
@@ -51,6 +51,7 @@ class User(models.Model):
     username = models.CharField(max_length=30)
     id_app = models.BigIntegerField()
     groups = models.ManyToManyField(Group)
+    orders = models.ManyToManyField(Order)
 
     def add_group(self, group):
         self.groups.add(group)
@@ -59,6 +60,9 @@ class User(models.Model):
         if group not in self.groups.all():
             raise CannotBeRemovedException("No se puede remover un grupo al cual un usuario no pertenece")
         self.groups.remove(group)
+
+    def add_order(self, order):
+        self.orders.add(order)
 
     def groups_quantity(self):
         return self.groups.count()

@@ -14,7 +14,6 @@ class TestGroup(TestCase):
     
     def test_a_group_is_created_without_users_and_orders(self):
         self.assertEqual(self.group.users_quantity(), 0)
-        self.group.orders.clear() #auxiliar para que pase el test hasta persistir los pedidos
         self.assertEqual(self.group.orders_quantity(), 0)
 
     def test_a_group_has_a_user_after_adding_one_to_it(self):
@@ -32,7 +31,8 @@ class TestGroup(TestCase):
             self.group.remove_user(self.user)
 
     def test_a_group_has_an_order_after_adding_one_to_it(self):
-        order = Order(self.group)
+        order = Order()
+        order.save()
         self.group.add_order(order)
         self.assertEqual(self.group.orders_quantity(), 1)
 
@@ -40,9 +40,10 @@ class TestGroup(TestCase):
 class TestOrder(TestCase):
 
     def setUp(self):
-        group = Group(name="Epersonal", id_app=1)
-        self.order = Order(group)
+        self.order = Order()
+        self.order.save()
         self.product = Product(name="Empanada de carne", restaurant="Unq King")
+        self.product.save()
     
     def test_an_order_is_created_without_food_to_order(self):
         self.assertEqual(self.order.totalQuantity, 0)
