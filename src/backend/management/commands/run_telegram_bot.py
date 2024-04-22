@@ -4,7 +4,7 @@ import os
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 from django.conf import settings
-from backend.models import Group, Product, User
+from backend.models import Group, Order, Product, User
 
 import logging
 from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -147,6 +147,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     product_name = context.user_data['product_name']
     user = query.from_user
     registrar_usuario_si_debe(user)
+    registrar_pedido_de_usuario(product_name, quantity, user)
 
     if current_order.get(user.id) and current_order[user.id].get(product_name):
         current_order[user.id][product_name] += quantity
@@ -168,9 +169,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get('conversation_started', False):
-        context.user_data['conversation_started'] = True
-        await update.message.reply_text("Bienvenido a PediGroup, para registrar un pedido debes usar el comando /pedido_individual.")
+    await update.message.reply_text("Bienvenido a PediGroup, para registrar un pedido debes usar el comando /pedido_individual.")
     return ConversationHandler.END
 
 
@@ -205,3 +204,12 @@ def registrar_usuario_si_debe(user):
     if not User.objects.filter(id_app__contains=user.id).exists():
         User.objects.create(first_name=user.first_name, last_name=user.last_name, 
                             username=user.username, id_app=user.id)
+
+
+def registrar_pedido_de_usuario(product_name, quantity, user):
+    pedigroup_user = User.objects.get(id_app__contains=user.id)
+    pedigroup_product = Product.objects.get(name__contains=product_name)
+    order = Order()
+    order.save()
+    order.add_products(pedigroup_product, quantity)
+    pedigroup_user.add_order(order)
