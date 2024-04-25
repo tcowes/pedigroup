@@ -1,5 +1,4 @@
 from .exceptions import CannotBeRemovedException
-from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 class Product(models.Model):
