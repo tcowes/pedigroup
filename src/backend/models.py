@@ -6,63 +6,62 @@ class Product(models.Model):
     restaurant = models.CharField(max_length=30)
 
 
-class Group:
-
-    def __init__(self, name):
-        self.name = name
-        self.users = set()
-        self.orders = list()
+class Group(models.Model):
+    name = models.CharField(max_length=30)
+    users = models.ManyToManyField("User")
+    id_app = models.BigIntegerField()
+    orders = models.ManyToManyField("Order")
 
     def add_user(self, user):
         self.users.add(user)
 
     def remove_user(self, user):
-        if user not in self.users:
+        if not self.users.filter(id_app=user.id_app).exists():
             raise CannotBeRemovedException("No se puede remover un usuario el cual no pertenece al grupo")
         self.users.remove(user)
 
     def add_order(self, order):
-        self.orders.append(order)
+        self.orders.add(order)
 
     def users_quantity(self):
-        return len(self.users)
+        return self.users.count()
     
     def orders_quantity(self):
-        return len(self.orders)
+        return self.orders.count()
 
 
-class Order:
-
-    def __init__(self, group):
-        self.group = group
-        self.products = list()
-        self.totalQuantity = 0
+class Order(models.Model):
+    products = models.ManyToManyField(Product)
+    quantities = list()
+    totalQuantity = models.BigIntegerField(default=0)
 
     def add_products(self, product, quantity):
-        if quantity < 0:
-            raise ValueError("La cantidad a añadir no puede ser negativa")
-        for i in range(1, quantity):
-            self.products.append(product)
+        if quantity <= 0:
+            raise ValueError("La cantidad a añadir no puede ser menor a 1")
+        self.products.add(product)
+        self.quantities.append(quantity)
         self.totalQuantity += quantity
+        self.save()
 
 
-class User:
-
-    def __init__(self, first_name, last_name, username, phone, id_app):
-        self.first_name = first_name
-        self.last_name = last_name
-        self.username = username
-        self.phone = phone
-        self.id_app = id_app
-        self.groups = set()
+class User(models.Model):
+    first_name = models.CharField(max_length=30)
+    last_name = models.CharField(max_length=30)
+    username = models.CharField(max_length=30)
+    id_app = models.BigIntegerField()
+    groups = models.ManyToManyField(Group)
+    orders = models.ManyToManyField(Order)
 
     def add_group(self, group):
         self.groups.add(group)
 
     def remove_group(self, group):
-        if group not in self.groups:
+        if not self.groups.filter(id_app=group.id_app).exists():
             raise CannotBeRemovedException("No se puede remover un grupo al cual un usuario no pertenece")
         self.groups.remove(group)
 
+    def add_order(self, order):
+        self.orders.add(order)
+
     def groups_quantity(self):
-        return len(self.groups)
+        return self.groups.count()
