@@ -1,7 +1,5 @@
 from collections import defaultdict
 from typing import Dict
-import os
-os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 from django.conf import settings
 from backend.models import Group, Order, Product, User
@@ -58,7 +56,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
 
     group = update.message.chat
     user = update.message.from_user
-    registrar_grupo_y_usuario_si_debe(group, user)
+    register_group_and_user_if_required(group, user)
     group_id = update.message.chat_id
     
     logger.info(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
@@ -106,7 +104,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Hacemos un select asíncrono... no es lo ideal, tenemos que investigar como poder hacer esto fuera del contexto.
-    product_names = [prod async for prod in Product.objects.all().values_list("name", flat=True)]
+    product_names = [prod for prod in Product.objects.all().values_list("name", flat=True)]
     keyboard = []
     for product_name in product_names:
         keyboard.append([InlineKeyboardButton(product_name, callback_data=product_name)])
@@ -146,8 +144,6 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['quantity'] = quantity
     product_name = context.user_data['product_name']
     user = query.from_user
-    registrar_usuario_si_debe(user)
-    registrar_pedido_de_usuario(product_name, quantity, user)
 
     if current_order.get(user.id) and current_order[user.id].get(product_name):
         current_order[user.id][product_name] += quantity
@@ -164,6 +160,9 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=query.message.chat_id,
         message_id=query.message.message_id
     )
+
+    register_user_if_required(user)
+    register_user_order(product_name, quantity, user)
 
     return ConversationHandler.END
 
@@ -194,21 +193,21 @@ def start_bot():
     application.run_polling()
 
 
-def registrar_grupo_y_usuario_si_debe(group, user):
+def register_group_and_user_if_required(group, user):
     if not Group.objects.filter(id_app__contains=group.id).exists():
         Group.objects.create(name=group.title, id_app=group.id)
-    registrar_usuario_si_debe(user)
+    register_user_if_required(user)
 
 
-def registrar_usuario_si_debe(user):
+def register_user_if_required(user):
     if not User.objects.filter(id_app__contains=user.id).exists():
         User.objects.create(first_name=user.first_name, last_name=user.last_name, 
                             username=user.username, id_app=user.id)
 
 
-def registrar_pedido_de_usuario(product_name, quantity, user):
-    pedigroup_user = User.objects.get(id_app__contains=user.id)
-    pedigroup_product = Product.objects.get(name__contains=product_name)
+def register_user_order(product_name, quantity, user):
+    pedigroup_user = User.objects.get(id_app=user.id)
+    pedigroup_product = Product.objects.get(name=product_name)
     order = Order()
     order.save()
     order.add_products(pedigroup_product, quantity)

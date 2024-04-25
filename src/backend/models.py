@@ -17,7 +17,7 @@ class Group(models.Model):
         self.users.add(user)
 
     def remove_user(self, user):
-        if user not in self.users.all():
+        if not self.users.filter(id_app=user.id_app).exists():
             raise CannotBeRemovedException("No se puede remover un usuario el cual no pertenece al grupo")
         self.users.remove(user)
 
@@ -33,7 +33,7 @@ class Group(models.Model):
 
 class Order(models.Model):
     products = models.ManyToManyField(Product)
-    quantities = ArrayField(models.IntegerField(), default=list)
+    quantities = list()
     totalQuantity = models.BigIntegerField(default=0)
 
     def add_products(self, product, quantity):
@@ -57,7 +57,7 @@ class User(models.Model):
         self.groups.add(group)
 
     def remove_group(self, group):
-        if group not in self.groups.all():
+        if not self.groups.filter(id_app=group.id_app).exists():
             raise CannotBeRemovedException("No se puede remover un grupo al cual un usuario no pertenece")
         self.groups.remove(group)
 

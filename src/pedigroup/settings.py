@@ -1,6 +1,8 @@
 import environ
 env = environ.Env()
 environ.Env.read_env()
+import os
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 from pathlib import Path
 
