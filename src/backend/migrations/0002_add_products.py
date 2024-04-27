@@ -4,22 +4,27 @@ from django.db import migrations
 
 
 def crear_objetos(apps, schema_editor):
+    Restaurant = apps.get_model("backend", "Restaurant")
+    restaurant = Restaurant(name="Eden", address="Calle Falsa 123", phone_number="1144554455")
+    restaurant.save()
     Product = apps.get_model("backend", "Product")
-    product1 = Product(name="Empanada de pollo", restaurant="Eden")
+    product1 = Product(name="Empanada de pollo", restaurant=restaurant)
     product1.save()
-    product2 = Product(name="Empanada de verdura", restaurant="Eden")
+    product2 = Product(name="Empanada de verdura", restaurant=restaurant)
     product2.save()
-    product3 = Product(name="Empanada de carne", restaurant="Eden")
+    product3 = Product(name="Empanada de carne", restaurant=restaurant)
     product3.save()
-    product4 = Product(name="Empanada de jamon y queso", restaurant="Eden")
+    product4 = Product(name="Empanada de jamon y queso", restaurant=restaurant)
     product4.save()
-    product5 = Product(name="Empanada de humita", restaurant="Eden")
+    product5 = Product(name="Empanada de humita", restaurant=restaurant)
     product5.save()
 
 
 def eliminar_objetos(apps, schema_editor):
     Product = apps.get_model("backend", "Product")
     Product.objects.all().delete()
+    Restaurant = apps.get_model("backend", "Restaurant")
+    Restaurant.objects.all().delete()
 
 
 class Migration(migrations.Migration):

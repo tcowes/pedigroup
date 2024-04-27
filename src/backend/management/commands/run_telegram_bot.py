@@ -208,7 +208,4 @@ def register_user_if_required(user):
 def register_user_order(product_name, quantity, user):
     pedigroup_user = User.objects.get(id_app=user.id)
     pedigroup_product = Product.objects.get(name=product_name)
-    order = Order()
-    order.save()
-    order.add_products(pedigroup_product, quantity)
-    pedigroup_user.add_order(order)
+    pedigroup_user.place_order(pedigroup_product, quantity)
