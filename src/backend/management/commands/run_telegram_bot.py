@@ -59,8 +59,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     user = update.message.from_user
     group_id = update.message.chat_id
     context.user_data['group_id'] = group_id
-    register_group_if_required(group)
-    register_user_and_add_to_group_if_required(user, group_id)
+    register_group_and_user_if_required(group, user)
     
     logger.info(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
 
@@ -201,9 +200,10 @@ def start_bot():
     application.run_polling()
 
 
-def register_group_if_required(group):
+def register_group_and_user_if_required(group, userApp):
     if not Group.objects.filter(id_app__contains=group.id).exists():
         Group.objects.create(name=group.title, id_app=group.id)
+    register_user_and_add_to_group_if_required(userApp, group.id)
 
 
 def register_user_and_add_to_group_if_required(userApp, group_id):
@@ -217,6 +217,7 @@ def register_user_and_add_to_group_if_required(userApp, group_id):
 def register_user_order(product, quantity, user):
     pedigroup_user = User.objects.get(id_app=user.id)
     return pedigroup_user.place_order(product, quantity)
+
 
 def register_group_order(group):
     pedigroup_group = Group.objects.get(id_app=group.id)
