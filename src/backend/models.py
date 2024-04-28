@@ -65,6 +65,9 @@ class Order(models.Model):
     user = models.ForeignKey("User", related_name='orders', on_delete=models.CASCADE)
     group_order = models.ForeignKey(GroupOrder, related_name='orders', on_delete=models.CASCADE, null=True)
 
+    def product_name(self):
+        return self.product.name
+
 
 class User(models.Model):
     first_name = models.CharField(max_length=30)
