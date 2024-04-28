@@ -36,18 +36,16 @@ class Command(BaseCommand):
 
 # Variable global para trackear el estado de un pedido.
 order_started = False
-# Variable global para ir almacenando el pedido
-current_order: Dict[int, Dict[str, int]] = {}
+# Variable global para ir almacenando los pedidos
 current_user_orders: list[Order] = []
 
 TYPE_SELECTION, QUANTITY = range(2)
 
-def format_order(total_order: dict) -> str:
+def format_order(orders: list[Order]) -> str:
     grouped_order = defaultdict(lambda: 0)
-    for _, order in total_order.items():
-        for item, quantity in order.items():
-            grouped_order[item] += quantity
-    return "\n".join([f"{item}: {quantity}" for item, quantity in grouped_order.items()])
+    for order in orders:
+        grouped_order[order.product.name] += order.quantity
+    return "\n".join([f"{product_name}: {quantity}" for product_name, quantity in grouped_order.items()])
 
 
 async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, starting_order: bool):
@@ -64,7 +62,6 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     logger.info(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
 
     global order_started
-    global current_order
     global current_user_orders
     reply_markup = InlineKeyboardMarkup([])
     match starting_order, order_started:
@@ -79,10 +76,9 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
         case True, True:
             message = "Ya hay un pedido en curso, finalizar con /finalizar_pedido"
         case False, True:
-            group_order = register_group_order(group)
-            formatted_order = format_order(current_order)
+            register_group_order(group)
+            formatted_order = format_order(current_user_orders)
             message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}"
-            current_order = {}
             current_user_orders = []
             order_started = False
         case False, False:
@@ -150,13 +146,6 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     product_id = context.user_data['product_id']
     pedigroup_product = Product.objects.get(id=product_id)
     user = query.from_user
-
-    if current_order.get(user.id) and current_order[user.id].get(pedigroup_product.name):
-        current_order[user.id][pedigroup_product.name] += quantity
-    elif current_order.get(user.id) and not current_order[user.id].get(pedigroup_product.name):
-        current_order[user.id][pedigroup_product.name] = quantity
-    else:
-        current_order[user.id] = {pedigroup_product.name: quantity}
 
     logger.info(f"{user.first_name} ({user.id}) added {quantity} {pedigroup_product.name}")
     await context.bot.edit_message_text(
