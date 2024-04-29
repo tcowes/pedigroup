@@ -35,9 +35,9 @@ class Command(BaseCommand):
         start_bot()
 
 # Variable global para trackear el estado de un pedido.
-order_started = False
+orders_initiated: Dict[int, bool] = {}
 # Variable global para ir almacenando los pedidos
-current_user_orders: list[Order] = []
+current_user_orders: Dict[int, list[Order]] = {}
 
 TYPE_SELECTION, QUANTITY = range(2)
 
@@ -59,28 +59,31 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     context.user_data['group_id'] = group_id
     register_group_and_user_if_required(group, user)
     
-    logger.info(f"{user.first_name} ({user.id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
+    logger.info(f"{user.first_name} ({user.id}) {group.title} ({group_id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
 
-    global order_started
+    global orders_initiated
     global current_user_orders
+    if not orders_initiated.get(group_id):
+        orders_initiated[group_id] = False
+        current_user_orders[group_id] = []
     reply_markup = InlineKeyboardMarkup([])
-    match starting_order, order_started:
+    match starting_order, orders_initiated.get(group_id):
         case True, False:
             message = (
                 f"{user.first_name} inició un pedido!"
                 "\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
                 "con el comando /pedido_individual."
             )
-            reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}")]])
-            order_started = True
+            reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}?start={group_id}")]])
+            orders_initiated[group_id] = True
         case True, True:
             message = "Ya hay un pedido en curso, finalizar con /finalizar_pedido"
         case False, True:
             register_group_order(group)
-            formatted_order = format_order(current_user_orders)
+            formatted_order = format_order(current_user_orders.get(group_id))
             message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}"
-            current_user_orders = []
-            order_started = False
+            current_user_orders[group_id] = []
+            orders_initiated[group_id] = False
         case False, False:
             message = "No hay ningún pedido en curso, iniciar uno nuevo con /iniciar_pedido"
 
@@ -96,8 +99,11 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global order_started
-    if not order_started:
+    message_with_group_id = update.message.text
+    message_with_group_id = message_with_group_id.removeprefix("/start ")
+    group_id = int(message_with_group_id)
+    global orders_initiated
+    if not orders_initiated[group_id]:
         await update.message.reply_text("Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
         return
     if update.message.chat.type != Chat.PRIVATE:
@@ -107,7 +113,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     products = [prod for prod in Product.objects.all()]
     keyboard = []
     for product in products:
-        keyboard.append([InlineKeyboardButton(product.name, callback_data=product.id)])
+        keyboard.append([InlineKeyboardButton(product.name, callback_data=str(product.id) + " " + str(group_id))])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
@@ -117,7 +123,9 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    product_id = query.data
+    product_id_and_group_id = query.data.split(" ")
+    product_id = int(product_id_and_group_id[0])
+    group_id = product_id_and_group_id[1]
     await query.answer()
 
     context.user_data['product_id'] = product_id
@@ -125,9 +133,9 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
     keyboard = []
     for i in range(1, 10, 3):
-        keyboard.append([InlineKeyboardButton(i, callback_data=i), 
-                         InlineKeyboardButton(i+1, callback_data=i+1),
-                         InlineKeyboardButton(i+2, callback_data=i+2)])
+        keyboard.append([InlineKeyboardButton(i, callback_data=str(i) + " " + group_id), 
+                         InlineKeyboardButton(i+1, callback_data=str(i+1) + " " + group_id),
+                         InlineKeyboardButton(i+2, callback_data=str(i+2) + " " + group_id)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.edit_message_text(text=f"Ingrese la cantidad de {pedigroup_product.name.lower()} que quisieras pedir:",
@@ -140,25 +148,29 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    quantity = int(query.data)
-
+    quantity_and_group_id = query.data.split(" ")
+    quantity = int(quantity_and_group_id[0])
+    group_id = int(quantity_and_group_id[1])
     context.user_data['quantity'] = quantity
     product_id = context.user_data['product_id']
     pedigroup_product = Product.objects.get(id=product_id)
     user = query.from_user
 
-    logger.info(f"{user.first_name} ({user.id}) added {quantity} {pedigroup_product.name}")
+    logger.info(f"{user.first_name} ({user.id}) ({group_id}) added {quantity} {pedigroup_product.name}")
+
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Añadir mas pedidos", url=f"t.me/{context.bot.username}?start={group_id}")]])
+
     await context.bot.edit_message_text(
         text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal!"
              "\n\nSi querés seguir agregando productos podes volver a pedir con /pedido_individual."
              "\nSi nadie mas quiere agregar productos, pueden finalizar el pedido desde el grupo con /finalizar_pedido.",
         chat_id=query.message.chat_id,
-        message_id=query.message.message_id
+        message_id=query.message.message_id,
+        reply_markup=reply_markup
     )
 
-    group_id = context.user_data['group_id']
     register_user_and_add_to_group_if_required(user, group_id)
-    current_user_orders.append(register_user_order(pedigroup_product, quantity, user))
+    current_user_orders.get(group_id).append(register_user_order(pedigroup_product, quantity, user))
 
     return ConversationHandler.END
 
@@ -176,6 +188,7 @@ def start_bot():
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("pedido_individual", show_menu),
+                      CommandHandler("start", show_menu),
                       MessageHandler(filters.ALL, start_message)],
         states={
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection)],
@@ -211,6 +224,6 @@ def register_user_order(product, quantity, user):
 def register_group_order(group):
     pedigroup_group = Group.objects.get(id_app=group.id)
     group_order = GroupOrder.objects.create(group=pedigroup_group)
-    for user_order in current_user_orders:
+    for user_order in current_user_orders.get(group.id):
         group_order.add_order(user_order)
     return group_order
