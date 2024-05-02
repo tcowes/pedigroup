@@ -56,7 +56,6 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     group = update.message.chat
     user = update.message.from_user
     group_id = update.message.chat_id
-    context.user_data['group_id'] = group_id
     register_group_and_user_if_required(group, user)
     
     logger.info(f"{user.first_name} ({user.id}) {group.title} ({group_id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
@@ -102,6 +101,8 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_with_group_id = update.message.text
     message_with_group_id = message_with_group_id.removeprefix("/start ")
     group_id = int(message_with_group_id)
+    pedigroup_group = Group.objects.get(id_app=group_id)
+    group_name = pedigroup_group.name
     global orders_initiated
     if not orders_initiated[group_id]:
         await update.message.reply_text("Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
@@ -113,7 +114,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     products = [prod for prod in Product.objects.all()]
     keyboard = []
     for product in products:
-        keyboard.append([InlineKeyboardButton(product.name, callback_data=str(product.id) + " " + str(group_id))])
+        keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
@@ -123,19 +124,19 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    product_id_and_group_id = query.data.split(" ")
-    product_id = int(product_id_and_group_id[0])
-    group_id = product_id_and_group_id[1]
-    await query.answer()
+    product_id_with_group_id_and_name = query.data.split(" ")
+    product_id = int(product_id_with_group_id_and_name[0])
+    pedigroup_product = Product.objects.get(id=product_id)
+    group_id = product_id_with_group_id_and_name[1]
+    group_name = ' '.join(product_id_with_group_id_and_name[2:])
 
     context.user_data['product_id'] = product_id
-    pedigroup_product = Product.objects.get(id=product_id)
 
     keyboard = []
     for i in range(1, 10, 3):
-        keyboard.append([InlineKeyboardButton(i, callback_data=str(i) + " " + group_id), 
-                         InlineKeyboardButton(i+1, callback_data=str(i+1) + " " + group_id),
-                         InlineKeyboardButton(i+2, callback_data=str(i+2) + " " + group_id)])
+        keyboard.append([InlineKeyboardButton(i, callback_data=f"{i} {group_id} {group_name}"), 
+                         InlineKeyboardButton(i+1, callback_data=f"{i+1} {group_id} {group_name}"),
+                         InlineKeyboardButton(i+2, callback_data=f"{i+2} {group_id} {group_name}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.edit_message_text(text=f"Ingrese la cantidad de {pedigroup_product.name.lower()} que quisieras pedir:",
@@ -148,25 +149,26 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    quantity_and_group_id = query.data.split(" ")
-    quantity = int(quantity_and_group_id[0])
-    group_id = int(quantity_and_group_id[1])
-    context.user_data['quantity'] = quantity
+    quantity_group_id_and_name = query.data.split(" ")
+    quantity = int(quantity_group_id_and_name[0])
+    group_id = int(quantity_group_id_and_name[1])
+    group_name = ' '.join(quantity_group_id_and_name[2:])
     product_id = context.user_data['product_id']
     pedigroup_product = Product.objects.get(id=product_id)
     user = query.from_user
 
-    logger.info(f"{user.first_name} ({user.id}) ({group_id}) added {quantity} {pedigroup_product.name}")
+    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Añadir mas pedidos", url=f"t.me/{context.bot.username}?start={group_id}")]])
 
     await context.bot.edit_message_text(
-        text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal!"
+        text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!"
              "\n\nSi querés seguir agregando productos podes volver a pedir con /pedido_individual."
              "\nSi nadie mas quiere agregar productos, pueden finalizar el pedido desde el grupo con /finalizar_pedido.",
         chat_id=query.message.chat_id,
         message_id=query.message.message_id,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
     )
 
     register_user_and_add_to_group_if_required(user, group_id)
