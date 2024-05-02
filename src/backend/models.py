@@ -65,10 +65,13 @@ class Order(models.Model):
     user = models.ForeignKey("User", related_name='orders', on_delete=models.CASCADE)
     group_order = models.ForeignKey(GroupOrder, related_name='orders', on_delete=models.CASCADE, null=True)
 
+    def product_name(self):
+        return self.product.name
+
 
 class User(models.Model):
     first_name = models.CharField(max_length=30)
-    last_name = models.CharField(max_length=30)
+    last_name = models.CharField(max_length=30, null=True)
     username = models.CharField(max_length=30)
     id_app = models.BigIntegerField()
     groups = models.ManyToManyField(Group, related_name='users')

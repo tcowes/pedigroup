@@ -105,6 +105,9 @@ class TestOrder(TestCase):
         group_order.add_order(self.order)
         self.assertEqual(self.order.group_order, group_order)
 
+    def test_an_order_has_a_product_and_can_tell_you_its_name(self):
+        self.assertEqual(self.order.product_name(), "Empanada de carne")
+
 
 class TestUser(TestCase):
 
