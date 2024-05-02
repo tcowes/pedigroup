@@ -97,9 +97,17 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_order(update, context, starting_order=False)
 
 
-async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_with_group_id = update.message.text
-    message_with_group_id = message_with_group_id.removeprefix("/start ")
+    group_id = message_with_group_id.removeprefix("/start ")
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir {group_id}")]])
+    await update.message.reply_text("Bienvenido a PediGroup", reply_markup=reply_markup)
+
+
+async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.edit_message_reply_markup(reply_markup=None)
+    message_with_group_id = query.data.removeprefix("pedir ")
     group_id = int(message_with_group_id)
     pedigroup_group = Group.objects.get(id_app=group_id)
     group_name = pedigroup_group.name
@@ -107,9 +115,9 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not orders_initiated[group_id]:
         await update.message.reply_text("Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
         return
-    if update.message.chat.type != Chat.PRIVATE:
-        await update.message.reply_text("Este comando solo puede llamarse desde un chat privado.")
-        return
+    #if update.message.chat.type != Chat.PRIVATE:
+    #    await update.message.reply_text("Este comando solo puede llamarse desde un chat privado.")
+    #    return
     
     products = [prod for prod in Product.objects.all()]
     keyboard = []
@@ -117,7 +125,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
+    await query.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
 
     return TYPE_SELECTION
 
@@ -159,12 +167,11 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Añadir mas pedidos", url=f"t.me/{context.bot.username}?start={group_id}")]])
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"Añadir mas pedidos a {group_name}", callback_data=f"pedir {group_id}")],
+                                         [InlineKeyboardButton(f"Finalizar pedidos individuales para {group_name}", callback_data="pedido finalizado")]])
 
     await context.bot.edit_message_text(
-        text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!"
-             "\n\nSi querés seguir agregando productos podes volver a pedir con /pedido_individual."
-             "\nSi nadie mas quiere agregar productos, pueden finalizar el pedido desde el grupo con /finalizar_pedido.",
+        text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!",
         chat_id=query.message.chat_id,
         message_id=query.message.message_id,
         reply_markup=reply_markup,
@@ -182,6 +189,12 @@ async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def finalize_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.edit_message_reply_markup(reply_markup=None)
+    return ConversationHandler.END
+
+
 def start_bot():
     application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
     
@@ -190,7 +203,9 @@ def start_bot():
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("pedido_individual", show_menu),
-                      CommandHandler("start", show_menu),
+                      CommandHandler("start", start_individual_order),
+                      CallbackQueryHandler(show_menu, pattern=r'^pedir(?:\s+(.*))?$'),
+                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
                       MessageHandler(filters.ALL, start_message)],
         states={
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection)],
