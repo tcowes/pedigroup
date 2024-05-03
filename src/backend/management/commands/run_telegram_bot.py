@@ -71,7 +71,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
             message = (
                 f"{user.first_name} inició un pedido!"
                 "\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
-                "con el comando /pedido_individual."
+                "clickeando el siguiente boton ↓"
             )
             reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}?start={group_id}")]])
             orders_initiated[group_id] = True
@@ -99,25 +99,24 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_with_group_id = update.message.text
-    group_id = message_with_group_id.removeprefix("/start ")
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir {group_id}")]])
-    await update.message.reply_text("Bienvenido a PediGroup", reply_markup=reply_markup)
+    group_id = int(message_with_group_id.removeprefix("/start "))
+    pedigroup_group = Group.objects.get(id_app=group_id)
+    group_name = pedigroup_group.name
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir {group_id} {group_name}")]])
+    await update.message.reply_text(f"Bienvenido a PediGroup, queres añadir pedidos individuales para _{group_name}_?", reply_markup=reply_markup, parse_mode="Markdown")
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.edit_message_reply_markup(reply_markup=None)
-    message_with_group_id = query.data.removeprefix("pedir ")
-    group_id = int(message_with_group_id)
-    pedigroup_group = Group.objects.get(id_app=group_id)
-    group_name = pedigroup_group.name
+    message_with_group_id_and_name = query.data.removeprefix("pedir ")
+    message_with_group_id_and_name = message_with_group_id_and_name.split(" ")
+    group_id = int(message_with_group_id_and_name[0])
+    group_name = ' '.join(message_with_group_id_and_name[1:])
     global orders_initiated
     if not orders_initiated[group_id]:
         await update.message.reply_text("Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
         return
-    #if update.message.chat.type != Chat.PRIVATE:
-    #    await update.message.reply_text("Este comando solo puede llamarse desde un chat privado.")
-    #    return
     
     products = [prod for prod in Product.objects.all()]
     keyboard = []
@@ -167,8 +166,8 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"Añadir mas pedidos a {group_name}", callback_data=f"pedir {group_id}")],
-                                         [InlineKeyboardButton(f"Finalizar pedidos individuales para {group_name}", callback_data="pedido finalizado")]])
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"Añadir mas pedidos", callback_data=f"pedir {group_id} {group_name}")],
+                                         [InlineKeyboardButton(f"Finalizar pedidos individuales", callback_data="pedido finalizado")]])
 
     await context.bot.edit_message_text(
         text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!",
@@ -185,7 +184,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bienvenido a PediGroup, para registrar un pedido debes usar el comando /pedido_individual.")
+    await update.message.reply_text("Bienvenido a PediGroup, para registrar un pedido individual debe iniciar uno grupal con el mensaje /iniciar_pedido")
     return ConversationHandler.END
 
 
