@@ -201,8 +201,7 @@ def start_bot():
     application.add_handler(CommandHandler("finalizar_pedido", finish_order))
 
     individual_order_handler = ConversationHandler(
-        entry_points=[CommandHandler("pedido_individual", show_menu),
-                      CommandHandler("start", start_individual_order),
+        entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
                       CallbackQueryHandler(show_menu, pattern=r'^pedir(?:\s+(.*))?$'),
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
                       MessageHandler(filters.ALL, start_message)],
