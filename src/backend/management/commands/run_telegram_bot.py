@@ -1,5 +1,4 @@
 from collections import defaultdict
-import os
 from typing import Dict
 
 from django.conf import settings
@@ -30,8 +29,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 from django.core.management.base import BaseCommand
-
-MEDIA_PATH = os.path.join(os.path.dirname(__file__), "media")
 
 
 class Command(BaseCommand):
