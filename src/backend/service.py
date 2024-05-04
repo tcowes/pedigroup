@@ -1,6 +1,6 @@
 import csv
 from io import TextIOWrapper
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from django.db import transaction
 from backend.exceptions import WrongHeadersForCsv
@@ -9,7 +9,7 @@ from backend.models import Product, Restaurant
 HEADERS_FROM_CSV = ["Restaurant", "Product", "Price"]
 
 
-def create_entities_through_csv(csv_file: TextIOWrapper) -> Tuple[int, int, int]:
+def create_entities_through_csv(csv_file: Union[TextIOWrapper, str]) -> Tuple[int, int, int]:
     """
     Esperamos que el csv respete el siguiente formato:
     
@@ -27,7 +27,8 @@ def create_entities_through_csv(csv_file: TextIOWrapper) -> Tuple[int, int, int]
     created_products = 0
     omitted_rows = 0
     products_to_create: List[Product] = []
-    reader = csv.DictReader(csv_file, delimiter=",")
+    csv_data = csv_file.split("\r\n") if isinstance(csv_file, str) else csv_file
+    reader = csv.DictReader(csv_data, delimiter=",") 
 
     if reader.fieldnames != HEADERS_FROM_CSV:
        raise WrongHeadersForCsv

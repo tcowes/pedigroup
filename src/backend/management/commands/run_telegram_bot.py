@@ -1,7 +1,9 @@
 from collections import defaultdict
+import os
 from typing import Dict
 
 from django.conf import settings
+from backend.exceptions import WrongHeadersForCsv
 from backend.models import Group, GroupOrder, Order, Product, User
 
 import logging
@@ -18,6 +20,8 @@ from telegram.ext import (
 
 from django.core.management.base import BaseCommand
 
+from backend.service import create_entities_through_csv
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -26,6 +30,8 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 from django.core.management.base import BaseCommand
+
+MEDIA_PATH = os.path.join(os.path.dirname(__file__), "media")
 
 
 class Command(BaseCommand):
@@ -194,17 +200,34 @@ async def finalize_individual_order(update: Update, context: ContextTypes.DEFAUL
     return ConversationHandler.END
 
 
+async def load_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    remote_file = await update.message.document.get_file()
+    bytes_from_file = await remote_file.download_as_bytearray()
+    try:
+        restaurants, products, ommited_rows = create_entities_through_csv(bytes(bytes_from_file).decode())
+    except WrongHeadersForCsv:
+        await update.message.reply_text("El csv ingresado no respeta el formato de las columnas. Estas deberían ser Restaurant,Product,Price")
+        return
+    except Exception as e:
+        logger.exception("error", e)
+        await update.message.reply_text("El csv ingresado no pudo ser procesado. Error desconocido")
+        return
+
+    await update.message.reply_text(f"El csv ingresado fue procesado correctamente!\n\nRestaurants creados: {restaurants}.\nProductos creados: {products}.\nFilas omitidas: {ommited_rows}.")
+
+
 def start_bot():
     application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
     
     application.add_handler(CommandHandler("iniciar_pedido", start_order))
     application.add_handler(CommandHandler("finalizar_pedido", finish_order))
+    application.add_handler(MessageHandler(filters.Caption(['cargar_csv']) & filters.Document.FileExtension("csv"), load_csv))
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
                       CallbackQueryHandler(show_menu, pattern=r'^pedir(?:\s+(.*))?$'),
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
-                      MessageHandler(filters.ALL, start_message)],
+                      MessageHandler(filters.ALL & (~ filters.Document.FileExtension("csv")), start_message)],
         states={
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection)],
             QUANTITY: [CallbackQueryHandler(handle_quantity)],
