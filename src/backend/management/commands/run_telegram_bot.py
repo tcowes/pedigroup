@@ -109,7 +109,7 @@ async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(f"Bienvenido a PediGroup, queres añadir pedidos individuales para _{group_name}_?", reply_markup=reply_markup, parse_mode="Markdown")
 
 
-async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.edit_message_reply_markup(reply_markup=None)
     message_with_group_id_and_name = query.data.removeprefix("pedir ")
@@ -121,15 +121,53 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
         return
     
-    products = [prod for prod in Product.objects.all()]
-    keyboard = []
-    for product in products:
-        keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.user_data['current_page'] = 0
+    context.user_data['quantity_of_products'] = Product.objects.count()
+    reply_markup = show_menu_page(context, group_id, group_name)
     await query.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
 
     return TYPE_SELECTION
+
+
+async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    page_movement_with_group_id_and_name = query.data.split(" ")
+    page_movement = page_movement_with_group_id_and_name[0]
+    group_id = int(page_movement_with_group_id_and_name[1])
+    group_name = ' '.join(page_movement_with_group_id_and_name[2:])
+    page = context.user_data['current_page']
+
+    if page_movement == "Siguiente":
+        context.user_data['current_page'] = page + 1
+    else:
+        context.user_data['current_page'] = page - 1
+
+    reply_markup = show_menu_page(context, group_id, group_name)
+    await query.edit_message_reply_markup(reply_markup=reply_markup)
+
+    return TYPE_SELECTION
+
+
+def show_menu_page(context: ContextTypes.DEFAULT_TYPE, group_id, group_name):
+    page = context.user_data['current_page']
+    quantity_of_products = context.user_data['quantity_of_products']
+    first_item = page * 5
+    last_item = first_item + 5
+    products = [prod for prod in Product.objects.all()[first_item:last_item]]
+    keyboard = []
+    for product in products:
+        keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
+    
+    previous_button = InlineKeyboardButton("Anterior", callback_data=f"Anterior {group_id} {group_name}")
+    next_button = InlineKeyboardButton("Siguiente", callback_data=f"Siguiente {group_id} {group_name}")
+    if page == 0 and quantity_of_products > last_item:
+        keyboard.append([next_button])
+    elif page > 0 and quantity_of_products > last_item:
+        keyboard.append([previous_button, next_button])
+    elif page > 0 and quantity_of_products <= last_item:
+        keyboard.append([previous_button])
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -222,11 +260,13 @@ def start_bot():
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
-                      CallbackQueryHandler(show_menu, pattern=r'^pedir(?:\s+(.*))?$'),
+                      CallbackQueryHandler(show_initial_menu, pattern=r'^pedir(?:\s+(.*))?$'),
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
                       MessageHandler(filters.ALL & (~ filters.Document.FileExtension("csv")), start_message)],
         states={
-            TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection)],
+            TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern="^\d+.*"),
+                             CallbackQueryHandler(show_menu, pattern=r'^Anterior(?:\s+(.*))?$'),
+                             CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$')],
             QUANTITY: [CallbackQueryHandler(handle_quantity)],
         },
         fallbacks=[],
