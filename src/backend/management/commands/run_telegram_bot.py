@@ -3,7 +3,7 @@ from typing import Dict
 
 from django.conf import settings
 from backend.exceptions import WrongHeadersForCsv
-from backend.models import Group, GroupOrder, Order, Product, User
+from backend.models import Group, GroupOrder, Order, Product, Restaurant, User
 
 import logging
 from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -42,7 +42,7 @@ orders_initiated: Dict[int, bool] = {}
 # Variable global para ir almacenando los pedidos
 current_user_orders: Dict[int, list[Order]] = {}
 
-TYPE_SELECTION, QUANTITY = range(2)
+MENU, TYPE_SELECTION, QUANTITY = range(3)
 
 def format_order(orders: list[Order]) -> str:
     grouped_order = defaultdict(lambda: 0)
@@ -109,7 +109,7 @@ async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(f"Bienvenido a PediGroup, queres añadir pedidos individuales para _{group_name}_?", reply_markup=reply_markup, parse_mode="Markdown")
 
 
-async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_restaurants(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.edit_message_reply_markup(reply_markup=None)
     message_with_group_id_and_name = query.data.removeprefix("pedir ")
@@ -121,9 +121,40 @@ async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
         return
     
+    restaurants = [rest for rest in Restaurant.objects.all()]
+    keyboard = []
+    for restaurant in restaurants:
+        keyboard.append([InlineKeyboardButton(restaurant.name, callback_data=f"menu {restaurant.id} YES {group_id} {group_name}")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Seleccioná a que restaurante te gustaría pedir:", reply_markup=reply_markup)
+
+    return MENU
+
+
+async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.edit_message_reply_markup(reply_markup=None)
+    message_with_restaurant_id_flag_group_id_and_name = query.data.removeprefix("menu ")
+    message_with_restaurant_id_flag_group_id_and_name = message_with_restaurant_id_flag_group_id_and_name.split(" ")
+    restaurant_id = message_with_restaurant_id_flag_group_id_and_name[0]
+    if_first_message = message_with_restaurant_id_flag_group_id_and_name [1]
+    group_id = int(message_with_restaurant_id_flag_group_id_and_name[2])
+    group_name = ' '.join(message_with_restaurant_id_flag_group_id_and_name[3:])
+
+    if if_first_message == "YES":
+        restaurant_name = Restaurant.objects.get(id=restaurant_id).name
+        await context.bot.edit_message_text(text=f"Los siguientes pedidos son al restaurante _{restaurant_name}_",
+                                            chat_id=query.message.chat_id,
+                                            message_id=query.message.message_id,
+                                            reply_markup=None,
+                                            parse_mode="Markdown")
+    
+    context.user_data['restaurant_id'] = restaurant_id
     context.user_data['current_page'] = 0
-    context.user_data['quantity_of_products'] = Product.objects.count()
+    context.user_data['quantity_of_products'] = Product.objects.filter(restaurant__id=restaurant_id).count()
     reply_markup = show_menu_page(context, group_id, group_name)
+    
     await query.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
 
     return TYPE_SELECTION
@@ -151,9 +182,10 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def show_menu_page(context: ContextTypes.DEFAULT_TYPE, group_id, group_name):
     page = context.user_data['current_page']
     quantity_of_products = context.user_data['quantity_of_products']
+    restaurant_id = context.user_data['restaurant_id']
     first_item = page * 5
     last_item = first_item + 5
-    products = [prod for prod in Product.objects.all()[first_item:last_item]]
+    products = [prod for prod in Product.objects.filter(restaurant__id=restaurant_id)[first_item:last_item]]
     keyboard = []
     for product in products:
         keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
@@ -202,12 +234,13 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     group_id = int(quantity_group_id_and_name[1])
     group_name = ' '.join(quantity_group_id_and_name[2:])
     product_id = context.user_data['product_id']
+    restaurant_id = context.user_data['restaurant_id']
     pedigroup_product = Product.objects.get(id=product_id)
     user = query.from_user
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"Añadir mas pedidos", callback_data=f"pedir {group_id} {group_name}")],
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"Añadir mas pedidos", callback_data=f"menu {restaurant_id} NO {group_id} {group_name}")],
                                          [InlineKeyboardButton(f"Finalizar pedidos individuales", callback_data="pedido finalizado")]])
 
     await context.bot.edit_message_text(
@@ -260,10 +293,12 @@ def start_bot():
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
-                      CallbackQueryHandler(show_initial_menu, pattern=r'^pedir(?:\s+(.*))?$'),
+                      CallbackQueryHandler(show_restaurants, pattern=r'^pedir(?:\s+(.*))?$'),
+                      CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
                       MessageHandler(filters.ALL & (~ filters.Document.FileExtension("csv")), start_message)],
         states={
+            MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$')],
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern="^\d+.*"),
                              CallbackQueryHandler(show_menu, pattern=r'^Anterior(?:\s+(.*))?$'),
                              CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$')],
