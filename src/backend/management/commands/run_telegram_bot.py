@@ -51,7 +51,7 @@ def format_order(orders: list[Order]) -> str:
     return "\n".join([f"{product_name}: {quantity}" for product_name, quantity in grouped_order.items()])
 
 
-async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, starting_order: bool):
+async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == Chat.PRIVATE:
         await update.message.reply_text("Este comando solo puede llamarse desde un grupo.")
         return
@@ -59,9 +59,10 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
     group = update.message.chat
     user = update.message.from_user
     group_id = update.message.chat_id
+
     register_group_and_user_if_required(group, user)
     
-    logger.info(f"{user.first_name} ({user.id}) {group.title} ({group_id}) called {'/iniciar_pedido' if starting_order else '/finalizar_pedido'}")
+    logger.info(f"{user.first_name} ({user.id}) {group.title} ({group_id}) called {'/iniciar_pedido'}")
 
     global orders_initiated
     global current_user_orders
@@ -69,35 +70,50 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE, start
         orders_initiated[group_id] = False
         current_user_orders[group_id] = []
     reply_markup = InlineKeyboardMarkup([])
-    match starting_order, orders_initiated.get(group_id):
-        case True, False:
+    match orders_initiated.get(group_id):
+        case False:
             message = (
                 f"{user.first_name} inició un pedido!"
                 "\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
                 "clickeando el siguiente boton ↓"
             )
-            reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}?start={group_id}")]])
+            reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}?start={group_id}")],
+                                                 [InlineKeyboardButton("Finalizar pedido", callback_data=f"Finalizar pedido {group_id}")]])
             orders_initiated[group_id] = True
-        case True, True:
-            message = "Ya hay un pedido en curso, finalizar con /finalizar_pedido"
-        case False, True:
+        case True:
+            message = "Ya hay un pedido en curso, finalizar clickeando el boton _Finalizar pedido_"
+
+    await context.bot.send_message(group_id, message, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.edit_message_reply_markup(reply_markup=None)
+    group_id = int(query.data.removeprefix("Finalizar pedido "))
+    group = Group.objects.get(id_app=group_id)
+    user = query.from_user
+    register_group_and_user_if_required(group, user)
+
+    logger.info(f"{user.first_name} ({user.id}) {group.name} ({group_id}) called {'/finalizar_pedido'}")
+    
+    global orders_initiated
+    global current_user_orders
+    if not orders_initiated.get(group_id):
+        orders_initiated[group_id] = False
+        current_user_orders[group_id] = []
+    reply_markup = InlineKeyboardMarkup([])
+
+    match orders_initiated.get(group_id):
+        case True:
             register_group_order(group)
             formatted_order = format_order(current_user_orders.get(group_id))
             message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}"
             current_user_orders[group_id] = []
             orders_initiated[group_id] = False
-        case False, False:
+        case False:
             message = "No hay ningún pedido en curso, iniciar uno nuevo con /iniciar_pedido"
 
     await context.bot.send_message(group_id, message, reply_markup=reply_markup)
-
-
-async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_order(update, context, starting_order=True)
-
-
-async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_order(update, context, starting_order=False)
 
 
 async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -304,7 +320,7 @@ def start_bot():
     application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
     
     application.add_handler(CommandHandler("iniciar_pedido", start_order))
-    application.add_handler(CommandHandler("finalizar_pedido", finish_order))
+    application.add_handler(CallbackQueryHandler(finish_order, pattern=r'^Finalizar pedido\s+\S+'))
     application.add_handler(MessageHandler(filters.Caption(['cargar_csv']) & filters.Document.FileExtension("csv"), load_csv))
 
     individual_order_handler = ConversationHandler(
@@ -349,9 +365,8 @@ def register_user_order(product, quantity, user):
     return pedigroup_user.place_order(product, quantity)
 
 
-def register_group_order(group):
-    pedigroup_group = Group.objects.get(id_app=group.id)
+def register_group_order(pedigroup_group):
     group_order = GroupOrder.objects.create(group=pedigroup_group)
-    for user_order in current_user_orders.get(group.id):
+    for user_order in current_user_orders.get(pedigroup_group.id_app):
         group_order.add_order(user_order)
     return group_order
