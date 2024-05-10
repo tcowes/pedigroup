@@ -289,6 +289,12 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def start_command_misused(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Este comando solo debe utilizarse luego de seleccionar la opcion _Contactar al bot_ desde un grupo",
+                                    parse_mode="Markdown")
+    return ConversationHandler.END
+
+
 async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bienvenido a PediGroup, para registrar un pedido individual debe iniciar uno grupal con el mensaje /iniciar_pedido")
     return ConversationHandler.END
@@ -325,6 +331,7 @@ def start_bot():
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
+                      CommandHandler("start", start_command_misused, filters=filters.Regex(r'^/start$')),
                       CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
