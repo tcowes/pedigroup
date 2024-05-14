@@ -21,7 +21,7 @@ class Product(models.Model):
 
 
 class Group(models.Model):
-    name = models.CharField(max_length=30)
+    name = models.CharField(max_length=128)
     id_app = models.BigIntegerField()
 
     def add_user(self, user: 'User'):
@@ -72,7 +72,7 @@ class Order(models.Model):
 class User(models.Model):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30, null=True)
-    username = models.CharField(max_length=30)
+    username = models.CharField(max_length=30, null=True)
     id_app = models.BigIntegerField()
     groups = models.ManyToManyField(Group, related_name='users')
     is_bot = models.BooleanField()

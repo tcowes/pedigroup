@@ -17,8 +17,6 @@ from telegram.ext import (
     filters,
 )
 
-from django.core.management.base import BaseCommand
-
 from backend.service import create_entities_through_csv
 
 logging.basicConfig(
