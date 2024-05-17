@@ -92,7 +92,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     group_id = int(query.data.removeprefix("Finalizar pedido "))
     group = Group.objects.get(id_app=group_id)
     user = query.from_user
-    register_group_and_user_if_required(group, user)
+    register_user_and_add_to_group_if_required(user, group_id)
 
     logger.info(f"{user.first_name} ({user.id}) {group.name} ({group_id}) called {'/finalizar_pedido'}")
     
