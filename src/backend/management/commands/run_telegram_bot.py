@@ -17,8 +17,6 @@ from telegram.ext import (
     filters,
 )
 
-from django.core.management.base import BaseCommand
-
 from backend.service import create_entities_through_csv
 
 logging.basicConfig(
@@ -360,11 +358,10 @@ def register_group_and_user_if_required(group, userApp):
 
 
 def register_user_and_add_to_group_if_required(userApp, group_id):
-    if not User.objects.filter(id_app__contains=userApp.id).exists():
-        user = User.objects.create(first_name=userApp.first_name, last_name=userApp.last_name, 
-                                   username=userApp.username, id_app=userApp.id, is_bot=userApp.is_bot)
-        group = Group.objects.get(id_app=group_id)
-        group.add_user(user)
+    user, _ = User.objects.get_or_create(first_name=userApp.first_name, last_name=userApp.last_name, 
+                                      username=userApp.username, id_app=userApp.id, is_bot=userApp.is_bot)
+    group = Group.objects.get(id_app=group_id)
+    group.add_user(user)
 
 
 def register_user_order(product, quantity, user):
