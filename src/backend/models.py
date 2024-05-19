@@ -17,7 +17,7 @@ class Restaurant(models.Model):
 
 
 class Product(models.Model):
-    name = models.CharField(max_length=30)
+    name = models.CharField(max_length=64)
     restaurant = models.ForeignKey(Restaurant, related_name='products', on_delete=models.CASCADE)
     estimated_price = models.FloatField(default=0)
 

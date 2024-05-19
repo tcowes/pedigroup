@@ -148,8 +148,9 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
         reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Restaurants")
         await query.message.reply_text("Seleccioná a que restaurante te gustaría pedir:", reply_markup=reply_markup)
     else:
-        await query.message.reply_text("Aún no se cargaron restaurantes en tu grupo, podes hacerlo siguiendo las"
+        await query.message.reply_text("Aún no se cargaron restaurantes en tu grupo, podes hacerlo siguiendo las "
                                        "instrucciones del bot en el grupo")
+        return ConversationHandler.END
     return MENU
 
 
@@ -325,8 +326,13 @@ async def finalize_individual_order(update: Update, context: ContextTypes.DEFAUL
 
 
 async def load_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat.type == Chat.PRIVATE:
-        await update.message.reply_text("Este comando solo puede llamarse desde un grupo.")
+    if not update.message.document or not update.message.reply_to_message:
+        # Si no hay documento adjunto o no es una respuesta a nuestro mensaje inicial, ignoramos
+        return
+
+    # Verificar si el mensaje recibido es una respuesta al mensaje inicial
+    if update.message.reply_to_message.text != "Perfecto, respondé a este mensaje con el archivo CSV que quisieras cargar por favor.":
+        # Si no es una respuesta al mensaje inicial, ignoramos
         return
 
     group_id = update.message.chat_id
@@ -349,12 +355,20 @@ async def load_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def start_csv_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat.type == Chat.PRIVATE:
+        await update.message.reply_text("Este comando solo puede llamarse desde un grupo.")
+        return
+    await update.message.reply_text("Perfecto, respondé a este mensaje con el archivo CSV que quisieras cargar por favor.")
+
+
 def start_bot():
     application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("iniciar_pedido", start_order))
     application.add_handler(CallbackQueryHandler(finish_order, pattern=r'^Finalizar pedido\s+\S+'))
-    application.add_handler(MessageHandler(filters.Caption(['cargar_csv']) & filters.Document.FileExtension("csv"), load_csv))
+    application.add_handler(CommandHandler("cargar_csv", start_csv_upload))
+    application.add_handler(MessageHandler(filters.Document.FileExtension("csv"), load_csv))
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
