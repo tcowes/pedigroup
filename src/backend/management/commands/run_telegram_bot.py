@@ -2,8 +2,10 @@ from collections import defaultdict
 from typing import Dict
 
 from django.conf import settings
+
+from backend.constants import *
 from backend.exceptions import WrongHeadersForCsv
-from backend.models import Group, GroupOrder, Order, Product, Restaurant, User
+from backend.models import Group, Order, Product, Restaurant
 
 import logging
 from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -15,9 +17,16 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     filters,
+    Application,
 )
 
-from backend.service import create_entities_through_csv
+from backend.service import (
+    create_entities_through_csv,
+    register_group_and_user_if_required,
+    register_user_order,
+    register_user_and_add_to_group_if_required,
+    register_group_order
+)
 from django.core.management.base import BaseCommand
 
 logging.basicConfig(
@@ -52,7 +61,7 @@ def format_order(orders: list[Order]) -> str:  # TODO: migrar a un utils.py
 
 async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == Chat.PRIVATE:
-        await update.message.reply_text("Este comando solo puede llamarse desde un grupo.")
+        await update.message.reply_text(ONLY_IN_GROUPS_MESSAGE)
         return
 
     group = update.message.chat
@@ -71,17 +80,13 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup([])
     match orders_initiated.get(group_id):
         case False:
-            message = (
-                f"{user.first_name} inició un pedido!"
-                "\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
-                "clickeando el siguiente boton ↓"
-            )
+            message = USER_STARTED_ORDER_MESSAGE(user.first_name)
             reply_markup = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}?start={group_id}")],
                  [InlineKeyboardButton("Finalizar pedido", callback_data=f"Finalizar pedido {group_id}")]])
             orders_initiated[group_id] = True
         case True:
-            message = "Ya hay un pedido en curso, finalizar clickeando el boton _Finalizar pedido_"
+            message = IN_COURSE_ORDER_MESSAGE
 
     await context.bot.send_message(group_id, message, reply_markup=reply_markup, parse_mode="Markdown")
 
@@ -105,13 +110,13 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     match orders_initiated.get(group_id):
         case True:
-            register_group_order(group)
+            register_group_order(group, current_user_orders)
             formatted_order = format_order(current_user_orders.get(group_id))
             message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}"
             current_user_orders[group_id] = []
             orders_initiated[group_id] = False
         case False:
-            message = "No hay ningún pedido en curso, iniciar uno nuevo con /iniciar_pedido"
+            message = SHOULD_INITIATE_ORDER_FIRST_MESSAGE
 
     await context.bot.send_message(group_id, message, reply_markup=reply_markup)
 
@@ -136,8 +141,7 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
     group_name = ' '.join(message_with_group_id_and_name[1:])
     global orders_initiated
     if not orders_initiated[group_id]:
-        await update.message.reply_text(
-            "Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido.")
+        await update.message.reply_text(NO_ORDER_INITIATED_MESSAGE)
         return
 
     restaurants_count = Restaurant.objects.filter(group__id_app=group_id).count()
@@ -146,10 +150,9 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
 
     if restaurants_count > 0:
         reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Restaurants")
-        await query.message.reply_text("Seleccioná a que restaurante te gustaría pedir:", reply_markup=reply_markup)
+        await query.message.reply_text(PICK_RESTAURANTS_MESSAGE, reply_markup=reply_markup)
     else:
-        await query.message.reply_text("Aún no se cargaron restaurantes en tu grupo, podes hacerlo siguiendo las "
-                                       "instrucciones del bot en el grupo")
+        await query.message.reply_text(NO_RESTAURANTS_FOUND_MESSAGE)
         return ConversationHandler.END
     return MENU
 
@@ -186,7 +189,7 @@ async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['quantity_of_items'] = restaurant.products_quantity()
     reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Products")
 
-    await query.message.reply_text("Seleccioná que producto te gustaría pedir:", reply_markup=reply_markup)
+    await query.message.reply_text(PICK_PRODUCTS_MESSAGE, reply_markup=reply_markup)
 
     return TYPE_SELECTION
 
@@ -233,8 +236,8 @@ def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id, g
         for product in products:
             keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
 
-    previous_button = InlineKeyboardButton("Anterior", callback_data=f"Anterior {group_id} {group_name}")
-    next_button = InlineKeyboardButton("Siguiente", callback_data=f"Siguiente {group_id} {group_name}")
+    previous_button = InlineKeyboardButton(PREVIOUS_BUTTON, callback_data=f"Anterior {group_id} {group_name}")
+    next_button = InlineKeyboardButton(NEXT_BUTTON, callback_data=f"Siguiente {group_id} {group_name}")
     if page == 0 and quantity_of_items > last_item:
         keyboard.append([next_button])
     elif page > 0 and quantity_of_items > last_item:
@@ -284,10 +287,10 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"Añadir mas pedidos",
-                                                               callback_data=f"menu {restaurant_id} NO {group_id} {group_name}")],
-                                         [InlineKeyboardButton(f"Finalizar pedidos individuales",
-                                                               callback_data="pedido finalizado")]])
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(ADD_PRODUCTS_BUTTON, callback_data=f"menu {restaurant_id} NO {group_id} {group_name}")],
+        [InlineKeyboardButton(FINISH_INDIVIDUAL_ORDERS, callback_data="pedido finalizado")]
+    ])
 
     await context.bot.edit_message_text(
         text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!",
@@ -304,6 +307,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_command_misused(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # TODO: esto lo seguimos necesitando?
     await update.message.reply_text(
         "Este comando solo debe utilizarse luego de seleccionar la opcion _Contactar al bot_ desde un grupo",
         parse_mode="Markdown"
@@ -312,6 +316,7 @@ async def start_command_misused(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # TODO: esto lo seguimos necesitando?
     await update.message.reply_text(
         "Bienvenido a PediGroup, para registrar un pedido individual debe iniciar "
         "uno grupal con el mensaje /iniciar_pedido"
@@ -331,7 +336,7 @@ async def load_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Verificar si el mensaje recibido es una respuesta al mensaje inicial
-    if update.message.reply_to_message.text != "Perfecto, respondé a este mensaje con el archivo CSV que quisieras cargar por favor.":
+    if update.message.reply_to_message.text != CSV_INSTRUCTIONS_MESSAGE:
         # Si no es una respuesta al mensaje inicial, ignoramos
         return
 
@@ -341,34 +346,43 @@ async def load_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         restaurants, products, ommited_rows = create_entities_through_csv(bytes(bytes_from_file).decode(), group_id)
     except WrongHeadersForCsv:
-        await update.message.reply_text(
-            "El csv ingresado no respeta el formato de las columnas. Estas deberían ser Restaurant,Product,Price")
+        await update.message.reply_text(CSV_LOAD_EXCEPTION_MESSAGE)
         return
     except Exception as e:
         logger.exception("error", e)
-        await update.message.reply_text("El csv ingresado no pudo ser procesado. Error desconocido")
+        await update.message.reply_text(CSV_LOAD_UNKNOWN_EXCEPTION_MESSAGE)
         return
 
-    await update.message.reply_text(
-        "El csv ingresado fue procesado correctamente!\n\n"
-        f" - Restaurants creados: {restaurants}.\n - Productos creados: {products}.\n - Filas omitidas: {ommited_rows}."
-    )
+    await update.message.reply_text(CSV_SUCCESSFULLY_PROCESSED(restaurants, products, ommited_rows))
 
 
 async def start_csv_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == Chat.PRIVATE:
-        await update.message.reply_text("Este comando solo puede llamarse desde un grupo.")
+        await update.message.reply_text(ONLY_IN_GROUPS_MESSAGE)
         return
-    await update.message.reply_text("Perfecto, respondé a este mensaje con el archivo CSV que quisieras cargar por favor.")
+    group = update.message.chat
+    user = update.message.from_user
+    register_group_and_user_if_required(group, user)
+    await update.message.reply_text(CSV_INSTRUCTIONS_MESSAGE)
+
+
+async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # TODO: pensar si queremos mostrar dos help distintos para cuando estamos en grupos o chat individuales.
+    await update.message.reply_text(HELP_MESSAGE)
+
+
+async def post_init(application: Application) -> None:
+    await application.bot.set_my_commands(ALL_COMMANDS)
 
 
 def start_bot():
-    application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    application = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).post_init(post_init).build()
 
-    application.add_handler(CommandHandler("iniciar_pedido", start_order))
+    application.add_handler(CommandHandler(START_ORDER_COMMAND.command, start_order))
     application.add_handler(CallbackQueryHandler(finish_order, pattern=r'^Finalizar pedido\s+\S+'))
-    application.add_handler(CommandHandler("cargar_csv", start_csv_upload))
+    application.add_handler(CommandHandler(LOAD_CSV_COMMAND.command, start_csv_upload))
     application.add_handler(MessageHandler(filters.Document.FileExtension("csv"), load_csv))
+    application.add_handler(CommandHandler(HELP_COMMAND.command, show_help))
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
@@ -392,29 +406,3 @@ def start_bot():
     application.add_handler(individual_order_handler)
 
     application.run_polling()
-
-
-# TODO: migrar todas estas funciones a services.py
-def register_group_and_user_if_required(group, userApp):
-    if not Group.objects.filter(id_app__contains=group.id).exists():
-        Group.objects.create(name=group.title, id_app=group.id)
-    register_user_and_add_to_group_if_required(userApp, group.id)
-
-
-def register_user_and_add_to_group_if_required(userApp, group_id):
-    user, _ = User.objects.get_or_create(first_name=userApp.first_name, last_name=userApp.last_name,
-                                         username=userApp.username, id_app=userApp.id, is_bot=userApp.is_bot)
-    group = Group.objects.get(id_app=group_id)
-    group.add_user(user)
-
-
-def register_user_order(product, quantity, user):
-    pedigroup_user = User.objects.get(id_app=user.id)
-    return pedigroup_user.place_order(product, quantity)
-
-
-def register_group_order(pedigroup_group):
-    group_order = GroupOrder.objects.create(group=pedigroup_group)
-    for user_order in current_user_orders.get(pedigroup_group.id_app):
-        group_order.add_order(user_order)
-    return group_order
