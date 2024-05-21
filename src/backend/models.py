@@ -1,10 +1,12 @@
 from .exceptions import CannotBeRemovedException
 from django.db import models
 
+
 class Restaurant(models.Model):
     name = models.CharField(max_length=30)
     address = models.CharField(max_length=30)
     phone_number = models.CharField(max_length=15)
+    group = models.ForeignKey('Group', related_name='restaurants', on_delete=models.CASCADE, null=True)
 
     def add_product(self, product_name: str, estimated_price: float):
         product = Product(name=product_name, restaurant=self, estimated_price=estimated_price)
@@ -15,7 +17,7 @@ class Restaurant(models.Model):
 
 
 class Product(models.Model):
-    name = models.CharField(max_length=30)
+    name = models.CharField(max_length=64)
     restaurant = models.ForeignKey(Restaurant, related_name='products', on_delete=models.CASCADE)
     estimated_price = models.FloatField(default=0)
 
@@ -26,6 +28,9 @@ class Group(models.Model):
 
     def add_user(self, user: 'User'):
         self.users.add(user)
+
+    def get_restaurants(self):
+        self.restaurants.all()
 
     def remove_user(self, user: 'User'):
         if not self.users.filter(id_app=user.id_app).exists():
@@ -41,7 +46,7 @@ class Group(models.Model):
 
     def users_quantity(self):
         return self.users.count()
-    
+
     def orders_quantity(self):
         return self.group_orders.count()
 
