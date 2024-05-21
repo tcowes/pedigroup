@@ -1,11 +1,12 @@
 import csv
-from typing import List, Tuple, Union, TextIO
+from typing import List, Tuple, Union, TextIO, Dict
 
+from telegram import User as TelegramUser, Chat
 from django.db import transaction
-from backend.exceptions import WrongHeadersForCsv
-from backend.models import Product, Restaurant, Group
 
-HEADERS_FROM_CSV = ["Restaurant", "Product", "Price"]
+from backend.constants import HEADERS_FROM_CSV
+from backend.exceptions import WrongHeadersForCsv
+from backend.models import Product, Restaurant, Group, User, GroupOrder, Order
 
 
 def create_entities_through_csv(csv_file: Union[TextIO, str], group_id: int) -> Tuple[int, int, int]:
@@ -53,3 +54,28 @@ def create_entities_through_csv(csv_file: Union[TextIO, str], group_id: int) -> 
         Product.objects.bulk_create(products_to_create)
     
     return created_restaurants, created_products, omitted_rows
+
+
+def register_group_and_user_if_required(group: Chat, user_app: TelegramUser):
+    if not Group.objects.filter(id_app__contains=group.id).exists():
+        Group.objects.create(name=group.title, id_app=group.id)
+    register_user_and_add_to_group_if_required(user_app, group.id)
+
+
+def register_user_and_add_to_group_if_required(user_app: TelegramUser, group_id: int):
+    user, _ = User.objects.get_or_create(first_name=user_app.first_name, last_name=user_app.last_name,
+                                         username=user_app.username, id_app=user_app.id, is_bot=user_app.is_bot)
+    group = Group.objects.get(id_app=group_id)
+    group.add_user(user)
+
+
+def register_user_order(product: Product, quantity: int, user: TelegramUser):
+    pedigroup_user = User.objects.get(id_app=user.id)
+    return pedigroup_user.place_order(product, quantity)
+
+
+def register_group_order(pedigroup_group: Group, user_orders: Dict[int, list[Order]]):
+    group_order = GroupOrder.objects.create(group=pedigroup_group)
+    for user_order in user_orders.get(pedigroup_group.id_app):
+        group_order.add_order(user_order)
+    return group_order
