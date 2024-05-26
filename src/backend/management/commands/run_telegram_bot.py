@@ -29,6 +29,8 @@ from backend.service import (
 )
 from django.core.management.base import BaseCommand
 
+from backend.utils import format_order
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -50,13 +52,6 @@ orders_initiated: Dict[int, bool] = {}
 current_user_orders: Dict[int, list[Order]] = {}
 
 MENU, TYPE_SELECTION, QUANTITY = range(3)
-
-
-def format_order(orders: list[Order]) -> str:  # TODO: migrar a un utils.py
-    grouped_order = defaultdict(lambda: 0)
-    for order in orders:
-        grouped_order[order.product_name()] += order.quantity
-    return "\n".join([f"{product_name}: {quantity}" for product_name, quantity in grouped_order.items()])
 
 
 async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -92,33 +87,26 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global orders_initiated
+    global current_user_orders
+
     query = update.callback_query
-    await query.edit_message_reply_markup(reply_markup=None)
+    # TODO: ver de usar el objeto
     group_id = int(query.data.removeprefix("Finalizar pedido "))
-    group = Group.objects.get(id_app=group_id)
+    group = Group.objects.get(id_app=group_id)  # TODO: Esta query tendría que extraerse a service
     user = query.from_user
     register_user_and_add_to_group_if_required(user, group_id)
 
-    logger.info(f"{user.first_name} ({user.id}) {group.name} ({group_id}) called {'/finalizar_pedido'}")
+    logger.info(f"{user.first_name} ({user.id}) {group.name} ({group_id}) finished the current order")
+    group_order = current_user_orders[group_id]
+    current_user_orders[group_id] = []
+    orders_initiated[group_id] = False
 
-    global orders_initiated
-    global current_user_orders
-    if not orders_initiated.get(group_id):
-        orders_initiated[group_id] = False
-        current_user_orders[group_id] = []
-    reply_markup = InlineKeyboardMarkup([])
-
-    match orders_initiated.get(group_id):
-        case True:
-            register_group_order(group, current_user_orders)
-            formatted_order = format_order(current_user_orders.get(group_id))
-            message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}"
-            current_user_orders[group_id] = []
-            orders_initiated[group_id] = False
-        case False:
-            message = SHOULD_INITIATE_ORDER_FIRST_MESSAGE
-
-    await context.bot.send_message(group_id, message, reply_markup=reply_markup)
+    register_group_order(group, group_order)
+    formatted_order = format_order(group_order)
+    await query.edit_message_text(
+        f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}", reply_markup=None
+    )
 
 
 async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -349,7 +337,7 @@ async def load_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(CSV_LOAD_EXCEPTION_MESSAGE)
         return
     except Exception as e:
-        logger.exception("error", e)
+        logger.exception(e)
         await update.message.reply_text(CSV_LOAD_UNKNOWN_EXCEPTION_MESSAGE)
         return
 
@@ -389,13 +377,12 @@ def start_bot():
                       CommandHandler("start", start_command_misused, filters=filters.Regex(r'^/start$')),
                       CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
-                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$'),
-                      MessageHandler(filters.ALL & (~ filters.Document.FileExtension("csv")), start_message)],
+                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$')],
         states={
             MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                    CallbackQueryHandler(show_restaurants, pattern=r'^Anterior(?:\s+(.*))?$'),
                    CallbackQueryHandler(show_restaurants, pattern=r'^Siguiente(?:\s+(.*))?$')],
-            TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern="^\d+.*"),
+            TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern=r"^\d+.*"),
                              CallbackQueryHandler(show_menu, pattern=r'^Anterior(?:\s+(.*))?$'),
                              CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$')],
             QUANTITY: [CallbackQueryHandler(handle_quantity)],

@@ -29,7 +29,6 @@ USER_STARTED_ORDER_MESSAGE = lambda username: (
 )
 IN_COURSE_ORDER_MESSAGE = "Ya hay un pedido en curso, finalizar clickeando el boton _Finalizar pedido_"
 ONLY_IN_GROUPS_MESSAGE = "Este comando solo puede llamarse desde un grupo."
-SHOULD_INITIATE_ORDER_FIRST_MESSAGE = "No hay ningún pedido en curso, iniciar uno nuevo con /iniciar_pedido"
 NO_ORDER_INITIATED_MESSAGE = (
     "Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido."
 )
