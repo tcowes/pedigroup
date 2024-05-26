@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Dict
 
 from django.conf import settings
@@ -91,7 +90,6 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global current_user_orders
 
     query = update.callback_query
-    # TODO: ver de usar el objeto
     group_id = int(query.data.removeprefix("Finalizar pedido "))
     group = Group.objects.get(id_app=group_id)  # TODO: Esta query tendría que extraerse a service
     user = query.from_user
