@@ -42,6 +42,8 @@ PICK_PRODUCTS_MESSAGE = "Seleccioná que producto te gustaría pedir:"
 # Texto de botones
 NEXT_BUTTON = "Siguiente ▶"
 PREVIOUS_BUTTON = "◀ Anterior"
+BACK_TO_RESTAURANTS_BUTTON = "Volver a selección de restaurantes"
+BACK_TO_PRODUCTS_BUTTON = "Volver a selección de productos"
 ADD_PRODUCTS_BUTTON = "Añadir mas pedidos"
 FINISH_INDIVIDUAL_ORDERS = "Finalizar pedidos individuales"
 
