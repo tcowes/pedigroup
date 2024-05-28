@@ -149,14 +149,6 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
     context.user_data['current_page'] = 0
     context.user_data['quantity_of_items'] = restaurants_count
 
-    #if if_first_message == "YES":
-    #    restaurant_name = restaurant.name
-    #    await context.bot.edit_message_text(text=f"Los siguientes pedidos son al restaurante _{restaurant_name}_",
-    #                                        chat_id=query.message.chat_id,
-    #                                        message_id=query.message.message_id,
-    #                                        reply_markup=None,
-    #                                        parse_mode="Markdown")
-
     if restaurants_count > 0:
         reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Restaurants")
         if if_first_message == "YES":
@@ -190,14 +182,6 @@ async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if_first_message = message_with_restaurant_id_flag_group_id_and_name[1]
     group_id = int(message_with_restaurant_id_flag_group_id_and_name[2])
     group_name = ' '.join(message_with_restaurant_id_flag_group_id_and_name[3:])
-
-    #if if_first_message == "YES":
-    #    restaurant_name = restaurant.name
-    #    await context.bot.edit_message_text(text=f"Los siguientes pedidos son al restaurante _{restaurant_name}_",
-    #                                        chat_id=query.message.chat_id,
-    #                                        message_id=query.message.message_id,
-    #                                        reply_markup=None,
-    #                                        parse_mode="Markdown")
 
     context.user_data['restaurant_id'] = restaurant_id
     context.user_data['current_page'] = 0
