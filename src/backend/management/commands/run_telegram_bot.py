@@ -8,7 +8,7 @@ from backend.exceptions import WrongHeadersForCsv
 from backend.models import Group, Order, Product, Restaurant
 
 import logging
-from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage, Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -48,6 +48,8 @@ class Command(BaseCommand):
 orders_initiated: Dict[int, bool] = {}
 # Variable global para ir almacenando los pedidos
 current_user_orders: Dict[int, list[Order]] = {}
+# Variable global para almacenar los mensajes de los pedidos individuales que se pueden editar actualmente
+editable_user_order_messages: Dict[int, list[MaybeInaccessibleMessage]] = {}
 
 MENU, TYPE_SELECTION, QUANTITY, MODIFY = range(4)
 
@@ -77,6 +79,7 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not orders_initiated.get(group_id):
         orders_initiated[group_id] = False
         current_user_orders[group_id] = []
+        editable_user_order_messages[user.id] = []
     reply_markup = InlineKeyboardMarkup([])
     match orders_initiated.get(group_id):
         case False:
@@ -326,6 +329,10 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     register_user_and_add_to_group_if_required(user, group_id)
     current_user_orders.get(group_id).append(pedigroup_order)
+    
+    if not editable_user_order_messages.get(user.id):
+        editable_user_order_messages[user.id] = []
+    editable_user_order_messages.get(user.id).append(query.message)
 
     return ConversationHandler.END
 
@@ -377,7 +384,7 @@ async def finish_modify_product_order(update: Update, context: ContextTypes.DEFA
     pedigroup_product = Product.objects.get(id=product_id)
     user = query.from_user
 
-    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order {order_id} with {quantity} {pedigroup_product.name}")
+    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order ({order_id}) with {quantity} {pedigroup_product.name}")
 
     pedigroup_order = next((order for order in current_user_orders.get(group_id) if order.id == order_id), None)
     pedigroup_order.modify_product(pedigroup_product)
@@ -444,7 +451,7 @@ async def finish_modify_quantity_order(update: Update, context: ContextTypes.DEF
     pedigroup_product = Product.objects.get(id=product_id)
     user = query.from_user
 
-    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order {order_id} with {quantity} {pedigroup_product.name}")
+    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order ({order_id}) with {quantity} {pedigroup_product.name}")
 
     pedigroup_order = next((order for order in current_user_orders.get(group_id) if order.id == order_id), None)
     pedigroup_order.modify_quantity(quantity)
@@ -487,7 +494,12 @@ async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def finalize_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    user = query.from_user
     group_name = query.data.removeprefix("pedido finalizado ")
+    for message in editable_user_order_messages.get(user.id):
+        await message.edit_reply_markup(None)
+    editable_user_order_messages[user.id] = []
+    
     await context.bot.edit_message_text(
         text=f"Haz finalizado tus pedidos individuales! Para finalizar el pedido grupal debes hacerlo desde el chat de grupo de _{group_name}_.",
         chat_id=query.message.chat_id,
