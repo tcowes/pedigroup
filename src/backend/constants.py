@@ -29,7 +29,6 @@ USER_STARTED_ORDER_MESSAGE = lambda username: (
 )
 IN_COURSE_ORDER_MESSAGE = "Ya hay un pedido en curso, finalizar clickeando el boton _Finalizar pedido_"
 ONLY_IN_GROUPS_MESSAGE = "Este comando solo puede llamarse desde un grupo."
-SHOULD_INITIATE_ORDER_FIRST_MESSAGE = "No hay ningún pedido en curso, iniciar uno nuevo con /iniciar_pedido"
 NO_ORDER_INITIATED_MESSAGE = (
     "Este comando solo puede llamarse una vez que alguien haya iniciado un pedido en un grupo con /iniciar_pedido."
 )
@@ -58,6 +57,7 @@ CSV_SUCCESSFULLY_PROCESSED = lambda restaurants, products, ommited_rows: (
     "El csv ingresado fue procesado correctamente!\n\n"
     f" - Restaurants creados: {restaurants}.\n - Productos creados: {products}."
     f"{f'\n - Filas omitidas: {ommited_rows}.' if ommited_rows > 0 else ''}"
+    "\n\nAhora se pueden realizar pedidos grupales con /iniciar_pedido 😊"
 )
 CSV_INSTRUCTIONS_MESSAGE = (
     "Genial!, ahora necesito que respondas a este mensaje adjuntando el archivo CSV que queres cargar, para eso tenes "

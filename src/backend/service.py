@@ -74,8 +74,8 @@ def register_user_order(product: Product, quantity: int, user: TelegramUser):
     return pedigroup_user.place_order(product, quantity)
 
 
-def register_group_order(pedigroup_group: Group, user_orders: Dict[int, list[Order]]):
+def register_group_order(pedigroup_group: Group, user_orders: List[Order]):
     group_order = GroupOrder.objects.create(group=pedigroup_group)
-    for user_order in user_orders.get(pedigroup_group.id_app):
+    for user_order in user_orders:
         group_order.add_order(user_order)
     return group_order
