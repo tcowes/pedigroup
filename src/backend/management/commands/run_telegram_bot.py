@@ -112,9 +112,9 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     match orders_initiated.get(group_id):
         case True:
-            register_group_order(group, current_user_orders)
+            group_order = register_group_order(group, current_user_orders)
             formatted_order = format_order(current_user_orders.get(group_id))
-            message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}"
+            message = f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\nPrecio estimado: ${group_order.estimated_price}"
             current_user_orders[group_id] = []
             orders_initiated[group_id] = False
         case False:
