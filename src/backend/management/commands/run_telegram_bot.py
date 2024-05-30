@@ -79,7 +79,6 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not orders_initiated.get(group_id):
         orders_initiated[group_id] = False
         current_user_orders[group_id] = []
-        editable_user_order_messages[user.id] = []
     reply_markup = InlineKeyboardMarkup([])
     match orders_initiated.get(group_id):
         case False:
