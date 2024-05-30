@@ -80,19 +80,20 @@ class TestGroupOrder(TestCase):
 class TestOrder(TestCase):
 
     def setUp(self):
-        restaurant = Restaurant(name="Eden", address="Calle Falsa 123", phone_number="1144554455")
-        restaurant.save()
-        self.product = Product(name="Empanada de carne", restaurant=restaurant)
+        self.restaurant = Restaurant(name="Eden", address="Calle Falsa 123", phone_number="1144554455")
+        self.restaurant.save()
+        self.product = Product(name="Empanada de carne", restaurant=self.restaurant, estimated_price=500)
         self.product.save()
         self.user = User(first_name="Lucas", last_name="Ziegemann", 
                     username="lziege", id_app=1, is_bot=False)
         self.user.save()
-        self.order = Order(product=self.product, quantity=2, user=self.user)
+        self.order = Order(product=self.product, quantity=2, user=self.user, estimated_price=500 * 2)
         self.order.save()
     
     def test_an_order_is_created_with_a_product_a_quantity_and_a_user(self):
         self.assertEqual(self.order.product, self.product)
         self.assertEqual(self.order.quantity, 2)
+        self.assertEqual(self.order.estimated_price, 1000)
         self.assertEqual(self.order.user, self.user)
 
     def test_an_order_can_be_started_without_an_assigned_group_order(self):
@@ -107,6 +108,19 @@ class TestOrder(TestCase):
 
     def test_an_order_has_a_product_and_can_tell_you_its_name(self):
         self.assertEqual(self.order.product_name(), "Empanada de carne")
+
+    def test_when_modifying_the_product_of_an_order_its_estimated_price_is_updated(self):
+        new_product = Product(name="Empanada de pollo", restaurant=self.restaurant, estimated_price=400)
+        self.order.modify_product(new_product)
+        self.assertEqual(self.order.product_name(), "Empanada de pollo")
+        self.assertEqual(self.order.estimated_price, 800)
+
+    def test_when_modifying_the_quantity_of_an_order_its_estimated_price_is_updated(self):
+        self.order.modify_quantity(3)
+        self.assertEqual(self.order.quantity, 3)
+        self.assertEqual(self.order.estimated_price, 1500)
+        pedigroup_order = Order.objects.get(id=self.order.id)
+        self.assertEqual(pedigroup_order.estimated_price, 1500)
 
 
 class TestUser(TestCase):
