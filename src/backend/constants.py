@@ -44,6 +44,8 @@ NEXT_BUTTON = "Siguiente ▶"
 PREVIOUS_BUTTON = "◀ Anterior"
 BACK_TO_RESTAURANTS_BUTTON = "Volver a selección de restaurantes"
 BACK_TO_PRODUCTS_BUTTON = "Volver a selección de productos"
+MODIFY_PRODUCT_BUTTON = "Modificar producto"
+MODIFY_QUANTITY_BUTTON = "Modificar cantidad"
 ADD_PRODUCTS_BUTTON = "Añadir mas pedidos"
 FINISH_INDIVIDUAL_ORDERS = "Finalizar pedidos individuales"
 
