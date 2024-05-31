@@ -72,6 +72,20 @@ class Order(models.Model):
 
     def product_name(self):
         return self.product.name
+    
+    def modify_product(self, new_product):
+        self.product = new_product
+        self.product.save()
+        self.update_estimated_price()
+        self.save()
+
+    def modify_quantity(self, new_quantity):
+        self.quantity = new_quantity
+        self.update_estimated_price()
+        self.save()
+
+    def update_estimated_price(self):
+        self.estimated_price = self.product.estimated_price * self.quantity
 
 
 class User(models.Model):

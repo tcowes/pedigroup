@@ -7,7 +7,7 @@ from backend.exceptions import WrongHeadersForCsv
 from backend.models import Group, Order, Product, Restaurant
 
 import logging
-from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Chat, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage, Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -49,8 +49,10 @@ class Command(BaseCommand):
 orders_initiated: Dict[int, bool] = {}
 # Variable global para ir almacenando los pedidos
 current_user_orders: Dict[int, list[Order]] = {}
+# Variable global para almacenar los mensajes de los pedidos individuales que se pueden editar actualmente
+editable_user_order_messages: Dict[int, list[MaybeInaccessibleMessage]] = {}
 
-MENU, TYPE_SELECTION, QUANTITY = range(3)
+MENU, TYPE_SELECTION, QUANTITY, MODIFY = range(4)
 
 
 async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,10 +102,11 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_user_orders[group_id] = []
     orders_initiated[group_id] = False
 
-    register_group_order(group, group_order)
+    pedigroup_group_order = register_group_order(group, group_order)
     formatted_order = format_order(group_order)
     await query.edit_message_text(
-        f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}", reply_markup=None
+        f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\nPrecio estimado: ${pedigroup_group_order.estimated_price}", 
+        reply_markup=None
     )
 
 
@@ -113,7 +116,7 @@ async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_T
     pedigroup_group = Group.objects.get(id_app=group_id)
     group_name = pedigroup_group.name
     reply_markup = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir {group_id} {group_name}")]])
+        [[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir YES {group_id} {group_name}")]])
     await update.message.reply_text(f"Bienvenido a PediGroup, queres añadir pedidos individuales para _{group_name}_?",
                                     reply_markup=reply_markup, parse_mode="Markdown")
 
@@ -121,10 +124,11 @@ async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_T
 async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.edit_message_reply_markup(reply_markup=None)
-    message_with_group_id_and_name = query.data.removeprefix("pedir ")
-    message_with_group_id_and_name = message_with_group_id_and_name.split(" ")
-    group_id = int(message_with_group_id_and_name[0])
-    group_name = ' '.join(message_with_group_id_and_name[1:])
+    message_with_flag_group_id_and_name = query.data.removeprefix("pedir ")
+    message_with_flag_group_id_and_name = message_with_flag_group_id_and_name.split(" ")
+    if_first_message = message_with_flag_group_id_and_name[0]
+    group_id = int(message_with_flag_group_id_and_name[1])
+    group_name = ' '.join(message_with_flag_group_id_and_name[2:])
     global orders_initiated
     if not orders_initiated[group_id]:
         await update.message.reply_text(NO_ORDER_INITIATED_MESSAGE)
@@ -135,8 +139,14 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
     context.user_data['quantity_of_items'] = restaurants_count
 
     if restaurants_count > 0:
-        reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Restaurants")
-        await query.message.reply_text(PICK_RESTAURANTS_MESSAGE, reply_markup=reply_markup)
+        reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Restaurants", False)
+        if if_first_message == "YES":
+            await query.message.reply_text(PICK_RESTAURANTS_MESSAGE, reply_markup=reply_markup)
+        else:
+            await context.bot.edit_message_text(PICK_RESTAURANTS_MESSAGE,
+                                                chat_id=query.message.chat_id,
+                                                message_id=query.message.message_id,
+                                                reply_markup=reply_markup)
     else:
         await query.message.reply_text(NO_RESTAURANTS_FOUND_MESSAGE)
         return ConversationHandler.END
@@ -145,7 +155,7 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
 
 async def show_restaurants(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    reply_markup = select_page_to_show(update, context, "Restaurants")
+    reply_markup = select_page_to_show(update, context, "Restaurants", False)
     await query.edit_message_reply_markup(reply_markup=reply_markup)
 
     return MENU
@@ -162,33 +172,31 @@ async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     group_id = int(message_with_restaurant_id_flag_group_id_and_name[2])
     group_name = ' '.join(message_with_restaurant_id_flag_group_id_and_name[3:])
 
-    if if_first_message == "YES":
-        restaurant_name = restaurant.name
-        await context.bot.edit_message_text(text=f"Los siguientes pedidos son al restaurante _{restaurant_name}_",
-                                            chat_id=query.message.chat_id,
-                                            message_id=query.message.message_id,
-                                            reply_markup=None,
-                                            parse_mode="Markdown")
-
     context.user_data['restaurant_id'] = restaurant_id
     context.user_data['current_page'] = 0
     context.user_data['quantity_of_items'] = restaurant.products_quantity()
-    reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Products")
+    reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Products", False)
 
-    await query.message.reply_text(PICK_PRODUCTS_MESSAGE, reply_markup=reply_markup)
+    if if_first_message == "YES":
+        await query.message.reply_text(PICK_PRODUCTS_MESSAGE, reply_markup=reply_markup)
+    else:
+        await context.bot.edit_message_text(PICK_PRODUCTS_MESSAGE,
+                                            chat_id=query.message.chat_id,
+                                            message_id=query.message.message_id,
+                                            reply_markup=reply_markup)
 
     return TYPE_SELECTION
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    reply_markup = select_page_to_show(update, context, "Products")
+    reply_markup = select_page_to_show(update, context, "Products", False)
     await query.edit_message_reply_markup(reply_markup=reply_markup)
 
     return TYPE_SELECTION
 
 
-def select_page_to_show(update: Update, context: ContextTypes.DEFAULT_TYPE, items_to_paginate):
+def select_page_to_show(update: Update, context: ContextTypes.DEFAULT_TYPE, items_to_paginate, modifier_mode):
     query = update.callback_query
     page_movement_with_group_id_and_name = query.data.split(" ")
     page_movement = page_movement_with_group_id_and_name[0]
@@ -201,46 +209,52 @@ def select_page_to_show(update: Update, context: ContextTypes.DEFAULT_TYPE, item
     else:
         context.user_data['current_page'] = page - 1
 
-    reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, items_to_paginate)
+    reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, items_to_paginate, modifier_mode)
     return reply_markup
 
 
-def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id, group_name, items_to_show):
+def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id, group_name, items_to_show, modifier_mode: bool):
     page = context.user_data['current_page']
     quantity_of_items = context.user_data['quantity_of_items']
     first_item = page * 5
     last_item = first_item + 5
     keyboard = []
+    
     if items_to_show == "Restaurants":
         restaurants = [rest for rest in Restaurant.objects.filter(group__id_app=group_id)[first_item:last_item]]
         for restaurant in restaurants:
             keyboard.append([InlineKeyboardButton(restaurant.name,
-                                                  callback_data=f"menu {restaurant.id} YES {group_id} {group_name}")])
+                                                  callback_data=f"menu {restaurant.id} NO {group_id} {group_name}")])
     elif items_to_show == "Products":
         restaurant_id = context.user_data['restaurant_id']
         products = [prod for prod in Product.objects.filter(restaurant__id=restaurant_id)[first_item:last_item]]
         for product in products:
-            keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {group_id} {group_name}")])
+            keyboard.append([InlineKeyboardButton(product.name, callback_data=f"{product.id} {restaurant_id} {group_id} {group_name}")])
 
     previous_button = InlineKeyboardButton(PREVIOUS_BUTTON, callback_data=f"Anterior {group_id} {group_name}")
     next_button = InlineKeyboardButton(NEXT_BUTTON, callback_data=f"Siguiente {group_id} {group_name}")
+    
     if page == 0 and quantity_of_items > last_item:
         keyboard.append([next_button])
     elif page > 0 and quantity_of_items > last_item:
         keyboard.append([previous_button, next_button])
     elif page > 0 and quantity_of_items <= last_item:
         keyboard.append([previous_button])
+    
+    if (not modifier_mode) & (items_to_show == "Products"):
+        keyboard.append([InlineKeyboardButton(BACK_TO_RESTAURANTS_BUTTON, callback_data=f"pedir NO {group_id} {group_name}")])
 
     return InlineKeyboardMarkup(keyboard)
 
 
 async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    product_id_with_group_id_and_name = query.data.split(" ")
-    product_id = int(product_id_with_group_id_and_name[0])
+    product_id_with_restaurant_id_group_id_and_name = query.data.split(" ")
+    product_id = int(product_id_with_restaurant_id_group_id_and_name[0])
     pedigroup_product = Product.objects.get(id=product_id)
-    group_id = product_id_with_group_id_and_name[1]
-    group_name = ' '.join(product_id_with_group_id_and_name[2:])
+    restaurant_id = product_id_with_restaurant_id_group_id_and_name[1]
+    group_id = product_id_with_restaurant_id_group_id_and_name[2]
+    group_name = ' '.join(product_id_with_restaurant_id_group_id_and_name[3:])
 
     context.user_data['product_id'] = product_id
 
@@ -249,6 +263,7 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard.append([InlineKeyboardButton(i, callback_data=f"{i} {group_id} {group_name}"),
                          InlineKeyboardButton(i + 1, callback_data=f"{i + 1} {group_id} {group_name}"),
                          InlineKeyboardButton(i + 2, callback_data=f"{i + 2} {group_id} {group_name}")])
+    keyboard.append([InlineKeyboardButton(BACK_TO_PRODUCTS_BUTTON, callback_data=f"menu {restaurant_id} NO {group_id} {group_name}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.edit_message_text(
@@ -273,9 +288,11 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
+    pedigroup_order = register_user_order(pedigroup_product, quantity, user)
+
     reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(ADD_PRODUCTS_BUTTON, callback_data=f"menu {restaurant_id} NO {group_id} {group_name}")],
-        [InlineKeyboardButton(FINISH_INDIVIDUAL_ORDERS, callback_data="pedido finalizado")]
+        [InlineKeyboardButton(MODIFY_PRODUCT_BUTTON, callback_data=f"modificar producto {restaurant_id} {pedigroup_order.id} {quantity} {group_id} {group_name}"),
+         InlineKeyboardButton(MODIFY_QUANTITY_BUTTON, callback_data=f"modificar cantidad {restaurant_id} {pedigroup_order.id} {pedigroup_product.id} {group_id} {group_name}")]
     ])
 
     await context.bot.edit_message_text(
@@ -286,8 +303,159 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(ADD_PRODUCTS_BUTTON, callback_data=f"menu {restaurant_id} NO {group_id} {group_name}")],
+        [InlineKeyboardButton(FINISH_INDIVIDUAL_ORDERS, callback_data=f"pedido finalizado {group_name}")]
+    ])
+
+    await query.message.reply_text(
+        text="Para continuar añadiendo pedidos individuales o finalizar seleccione alguna de las siguientes opciones:",
+        reply_markup=reply_markup
+    )
+
     register_user_and_add_to_group_if_required(user, group_id)
-    current_user_orders.get(group_id).append(register_user_order(pedigroup_product, quantity, user))
+    current_user_orders.get(group_id).append(pedigroup_order)
+    
+    if not editable_user_order_messages.get(user.id):
+        editable_user_order_messages[user.id] = []
+    editable_user_order_messages.get(user.id).append(query.message)
+
+    return ConversationHandler.END
+
+
+async def show_initial_modify_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.edit_message_reply_markup(reply_markup=None)
+    message_with_restaurant_id_order_id_quantity_group_id_and_name = query.data.removeprefix("modificar producto ")
+    message_with_restaurant_id_order_id_quantity_group_id_and_name = message_with_restaurant_id_order_id_quantity_group_id_and_name.split(" ")
+    restaurant_id = int(message_with_restaurant_id_order_id_quantity_group_id_and_name[0])
+    restaurant = Restaurant.objects.get(id=restaurant_id)
+    order_id = int(message_with_restaurant_id_order_id_quantity_group_id_and_name[1])
+    quantity = int(message_with_restaurant_id_order_id_quantity_group_id_and_name[2])
+    group_id = int(message_with_restaurant_id_order_id_quantity_group_id_and_name[3])
+    group_name = ' '.join(message_with_restaurant_id_order_id_quantity_group_id_and_name[4:])
+
+    context.user_data['restaurant_id'] = restaurant_id
+    context.user_data['order_id'] = order_id
+    context.user_data['quantity'] = quantity
+    context.user_data['current_page'] = 0
+    context.user_data['quantity_of_items'] = restaurant.products_quantity()
+    reply_markup = show_menu_or_restaurant_page(context, group_id, group_name, "Products", True)
+
+    await context.bot.edit_message_text(PICK_PRODUCTS_MESSAGE,
+                                            chat_id=query.message.chat_id,
+                                            message_id=query.message.message_id,
+                                            reply_markup=reply_markup)
+    
+    return MODIFY
+
+
+async def show_modify_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    reply_markup = select_page_to_show(update, context, "Products", True)
+    await query.edit_message_reply_markup(reply_markup=reply_markup)
+
+    return MODIFY
+
+
+async def finish_modify_product_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    product_id_restaurant_id_group_id_and_name = query.data.split(" ")
+    quantity = context.user_data['quantity']
+    order_id = context.user_data['order_id']
+    product_id = int(product_id_restaurant_id_group_id_and_name[0])
+    restaurant_id = int(product_id_restaurant_id_group_id_and_name[1])
+    group_id = int(product_id_restaurant_id_group_id_and_name[2])
+    group_name = ' '.join(product_id_restaurant_id_group_id_and_name[3:])
+    pedigroup_product = Product.objects.get(id=product_id)
+    user = query.from_user
+
+    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order ({order_id}) with {quantity} {pedigroup_product.name}")
+
+    pedigroup_order = next((order for order in current_user_orders.get(group_id) if order.id == order_id), None)
+    pedigroup_order.modify_product(pedigroup_product)
+    current_user_orders[group_id] = [order for order in current_user_orders.get(group_id) if order.id != order_id]
+    current_user_orders.get(group_id).append(pedigroup_order)
+
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(MODIFY_PRODUCT_BUTTON, callback_data=f"modificar producto {restaurant_id} {pedigroup_order.id} {quantity} {group_id} {group_name}"),
+         InlineKeyboardButton(MODIFY_QUANTITY_BUTTON, callback_data=f"modificar cantidad {restaurant_id} {pedigroup_order.id} {pedigroup_product.id} {group_id} {group_name}")]
+    ])
+
+    await context.bot.edit_message_text(
+        text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!",
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id,
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
+
+    return ConversationHandler.END
+
+
+async def show_modify_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    message_with_restaurant_id_order_id_product_id_group_id_and_name = query.data.removeprefix("modificar cantidad ")
+    restaurant_id_order_id_product_id_group_id_and_name = message_with_restaurant_id_order_id_product_id_group_id_and_name.split(" ")
+    restaurant_id = int(restaurant_id_order_id_product_id_group_id_and_name[0])
+    order_id = int(restaurant_id_order_id_product_id_group_id_and_name[1])
+    product_id = int(restaurant_id_order_id_product_id_group_id_and_name[2])
+    pedigroup_product = Product.objects.get(id=product_id)
+    group_id = int(restaurant_id_order_id_product_id_group_id_and_name[3])
+    group_name = ' '.join(restaurant_id_order_id_product_id_group_id_and_name[4:])
+
+    context.user_data['restaurant_id'] = restaurant_id
+    context.user_data['order_id'] = order_id
+    context.user_data['product_id'] = product_id
+
+    keyboard = []
+    for i in range(1, 10, 3):
+        keyboard.append([InlineKeyboardButton(i, callback_data=f"modificado {i} {group_id} {group_name}"),
+                         InlineKeyboardButton(i + 1, callback_data=f"modificado {i + 1} {group_id} {group_name}"),
+                         InlineKeyboardButton(i + 2, callback_data=f"modificado {i + 2} {group_id} {group_name}")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.edit_message_text(
+        text=f"Ingrese la cantidad de {pedigroup_product.name.lower()} que quisieras pedir:",
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id,
+        reply_markup=reply_markup)
+    
+    return MODIFY
+
+
+async def finish_modify_quantity_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    message_with_quantity_group_id_and_name = query.data.removeprefix("modificado ")
+    quantity_group_id_and_name = message_with_quantity_group_id_and_name.split(" ")
+    quantity = int(quantity_group_id_and_name[0])
+    group_id = int(quantity_group_id_and_name[1])
+    group_name = ' '.join(quantity_group_id_and_name[2:])
+    restaurant_id = context.user_data['restaurant_id']
+    order_id = context.user_data['order_id']
+    product_id = context.user_data['product_id']
+    pedigroup_product = Product.objects.get(id=product_id)
+    user = query.from_user
+
+    logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order ({order_id}) with {quantity} {pedigroup_product.name}")
+
+    pedigroup_order = next((order for order in current_user_orders.get(group_id) if order.id == order_id), None)
+    pedigroup_order.modify_quantity(quantity)
+    current_user_orders[group_id] = [order for order in current_user_orders.get(group_id) if order.id != order_id]
+    current_user_orders.get(group_id).append(pedigroup_order)
+
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(MODIFY_PRODUCT_BUTTON, callback_data=f"modificar producto {restaurant_id} {pedigroup_order.id} {quantity} {group_id} {group_name}"),
+         InlineKeyboardButton(MODIFY_QUANTITY_BUTTON, callback_data=f"modificar cantidad {restaurant_id} {pedigroup_order.id} {pedigroup_product.id} {group_id} {group_name}")]
+    ])
+
+    await context.bot.edit_message_text(
+        text=f"Agregué {quantity} {pedigroup_product.name.lower()} al pedido grupal de _{group_name}_!",
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id,
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
 
     return ConversationHandler.END
 
@@ -312,7 +480,19 @@ async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def finalize_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.edit_message_reply_markup(reply_markup=None)
+    user = query.from_user
+    group_name = query.data.removeprefix("pedido finalizado ")
+    for message in editable_user_order_messages.get(user.id):
+        await message.edit_reply_markup(None)
+    editable_user_order_messages[user.id] = []
+    
+    await context.bot.edit_message_text(
+        text=f"Haz finalizado tus pedidos individuales! Para finalizar el pedido grupal debes hacerlo desde el chat de grupo de _{group_name}_.",
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id,
+        reply_markup=None,
+        parse_mode="Markdown"
+    )
     return ConversationHandler.END
 
 
@@ -375,15 +555,23 @@ def start_bot():
                       CommandHandler("start", start_command_misused, filters=filters.Regex(r'^/start$')),
                       CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
-                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado$')],
+                      CallbackQueryHandler(show_initial_modify_product, pattern=r'^modificar producto(?:\s+(.*))?$'),
+                      CallbackQueryHandler(show_modify_quantity, pattern=r'^modificar cantidad(?:\s+(.*))?$'),
+                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$')],
         states={
             MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                    CallbackQueryHandler(show_restaurants, pattern=r'^Anterior(?:\s+(.*))?$'),
                    CallbackQueryHandler(show_restaurants, pattern=r'^Siguiente(?:\s+(.*))?$')],
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern=r"^\d+.*"),
                              CallbackQueryHandler(show_menu, pattern=r'^Anterior(?:\s+(.*))?$'),
-                             CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$')],
-            QUANTITY: [CallbackQueryHandler(handle_quantity)],
+                             CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$'),
+                             CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$')],
+            QUANTITY: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
+                       CallbackQueryHandler(handle_quantity)],
+            MODIFY: [CallbackQueryHandler(show_modify_product, pattern=r'^Anterior(?:\s+(.*))?$'),
+                     CallbackQueryHandler(show_modify_product, pattern=r'^Siguiente(?:\s+(.*))?$'),
+                     CallbackQueryHandler(finish_modify_quantity_order, pattern=r'^modificado(?:\s+(.*))?$'),
+                     CallbackQueryHandler(finish_modify_product_order, pattern="^\d+.*")]
         },
         fallbacks=[],
     )
