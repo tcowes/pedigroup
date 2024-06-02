@@ -4,9 +4,10 @@ from typing import List, Tuple, Union, TextIO, Dict
 from telegram import User as TelegramUser, Chat
 from django.db import transaction
 
-from backend.constants import HEADERS_FROM_CSV
+from backend.constants import HEADERS_FROM_CSV, GROUP_DIDNT_ORDER_YET_MESSAGE
 from backend.exceptions import WrongHeadersForCsv
 from backend.models import Product, Restaurant, Group, User, GroupOrder, Order
+from backend.utils import format_group_orders_with_date
 
 
 def create_entities_through_csv(csv_file: Union[TextIO, str], group_id: int) -> Tuple[int, int, int]:
@@ -79,3 +80,11 @@ def register_group_order(pedigroup_group: Group, user_orders: List[Order]):
     for user_order in user_orders:
         group_order.add_order(user_order)
     return group_order
+
+
+def get_last_five_orders_from_group_as_string(group_id: int) -> str:
+    last_five_orders = Group.objects.get(id_app=group_id).group_orders.all().order_by('-created_at')[:5]
+    if not last_five_orders:
+        return GROUP_DIDNT_ORDER_YET_MESSAGE
+    else:
+        return format_group_orders_with_date(last_five_orders)

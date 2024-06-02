@@ -532,6 +532,13 @@ async def start_csv_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(CSV_INSTRUCTIONS_MESSAGE)
 
 
+async def show_order_record(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat.type == Chat.PRIVATE:
+        await update.message.reply_text(ONLY_IN_GROUPS_MESSAGE)
+    else:
+        group_id = update.message.chat.id
+
+
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # TODO: pensar si queremos mostrar dos help distintos para cuando estamos en grupos o chat individuales.
     await update.message.reply_text(HELP_MESSAGE)
@@ -549,6 +556,7 @@ def start_bot():
     application.add_handler(CommandHandler(LOAD_CSV_COMMAND.command, start_csv_upload))
     application.add_handler(MessageHandler(filters.Document.FileExtension("csv"), load_csv))
     application.add_handler(CommandHandler(HELP_COMMAND.command, show_help))
+    application.add_handler(CommandHandler(SHOW_ORDER_RECORD_COMMAND.command, show_order_record))
 
     individual_order_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_individual_order, filters=filters.Regex(r'^/start\s+\S+')),
@@ -571,7 +579,7 @@ def start_bot():
             MODIFY: [CallbackQueryHandler(show_modify_product, pattern=r'^Anterior(?:\s+(.*))?$'),
                      CallbackQueryHandler(show_modify_product, pattern=r'^Siguiente(?:\s+(.*))?$'),
                      CallbackQueryHandler(finish_modify_quantity_order, pattern=r'^modificado(?:\s+(.*))?$'),
-                     CallbackQueryHandler(finish_modify_product_order, pattern="^\d+.*")]
+                     CallbackQueryHandler(finish_modify_product_order, pattern=r"^\d+.*")]
         },
         fallbacks=[],
     )

@@ -1,7 +1,7 @@
 from django.test import TestCase
 
-from .models import GroupOrder, Order, Group, Product, Restaurant, User
-from .exceptions import CannotBeRemovedException
+from backend.models import GroupOrder, Order, Group, Product, Restaurant, User
+from backend.exceptions import CannotBeRemovedException
 
 class TestRestaurant(TestCase):
 

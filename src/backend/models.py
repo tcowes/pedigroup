@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from .exceptions import CannotBeRemovedException
 from django.db import models
 
@@ -38,7 +40,7 @@ class Group(models.Model):
         self.users.remove(user)
 
     def place_group_order(self, orders: list['Order']):
-        group_order = GroupOrder(group=self)
+        group_order = GroupOrder(group=self, created_at=timezone.now())
         group_order.save()
         for order in orders:
             group_order.add_order(order)
@@ -54,6 +56,7 @@ class Group(models.Model):
 class GroupOrder(models.Model):
     estimated_price = models.FloatField(default=0)
     group = models.ForeignKey(Group, related_name='group_orders', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def add_order(self, order: 'Order'):
         self.orders.add(order)
@@ -69,10 +72,11 @@ class Order(models.Model):
     estimated_price = models.FloatField(default=0)
     user = models.ForeignKey("User", related_name='orders', on_delete=models.CASCADE)
     group_order = models.ForeignKey(GroupOrder, related_name='orders', on_delete=models.CASCADE, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def product_name(self):
         return self.product.name
-    
+
     def modify_product(self, new_product):
         self.product = new_product
         self.product.save()
@@ -106,12 +110,15 @@ class User(models.Model):
 
     def place_order(self, product: Product, quantity: int):
         estimated_order_price = product.estimated_price * quantity
-        order = Order(product=product, quantity=quantity, user=self, estimated_price=estimated_order_price)
+        order = Order(
+            product=product, quantity=quantity, user=self, estimated_price=estimated_order_price,
+            created_at=timezone.now()
+        )
         order.save()
         return order
 
     def groups_quantity(self):
         return self.groups.count()
-    
+
     def orders_quantity(self):
         return self.orders.count()
