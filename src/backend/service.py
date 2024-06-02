@@ -4,7 +4,7 @@ from typing import List, Tuple, Union, TextIO
 from telegram import User as TelegramUser, Chat
 from django.db import transaction
 
-from backend.constants import HEADERS_FROM_CSV, GROUP_DIDNT_ORDER_YET_MESSAGE
+from backend.constants import HEADERS_FROM_CSV, GROUP_DIDNT_ORDER_YET_MESSAGE, USER_DIDNT_ORDER_YET_MESSAGE
 from backend.exceptions import WrongHeadersForCsv
 from backend.models import Product, Restaurant, Group, User, GroupOrder, Order
 from backend.utils import format_group_orders_with_date
@@ -29,7 +29,7 @@ def create_entities_through_csv(csv_file: Union[TextIO, str], group_id: int) -> 
     omitted_rows = 0
     products_to_create: List[Product] = []
     csv_data = csv_file.split("\r\n") if isinstance(csv_file, str) else csv_file
-    reader = csv.DictReader(csv_data, delimiter=",") 
+    reader = csv.DictReader(csv_data, delimiter=",")
 
     if reader.fieldnames != HEADERS_FROM_CSV:
         raise WrongHeadersForCsv
@@ -46,14 +46,14 @@ def create_entities_through_csv(csv_file: Union[TextIO, str], group_id: int) -> 
             restaurant, created = Restaurant.objects.get_or_create(name=row["Restaurant"].title(), group_id=group.id)
             if created:
                 created_restaurants += 1
-            
+
             price = float(row["Price"]) if row["Price"] else 0.0
             product = Product(name=row["Product"].title(), estimated_price=price, restaurant=restaurant)
             products_to_create.append(product)
             created_products += 1
 
         Product.objects.bulk_create(products_to_create)
-    
+
     return created_restaurants, created_products, omitted_rows
 
 
@@ -85,3 +85,16 @@ def get_last_five_orders_from_group_as_string(group_id: int) -> str:
         return GROUP_DIDNT_ORDER_YET_MESSAGE
     else:
         return format_group_orders_with_date(last_five_orders)
+
+
+def get_last_five_orders_from_user_in_group_as_string(user_id: int, group_id: int) -> str:
+    last_five_orders = (
+        GroupOrder.objects
+        .filter(group__id_app=group_id).filter(orders__user__id_app=user_id)
+        .order_by('-created_at').distinct()[:5]
+    )
+    if not last_five_orders:
+        return USER_DIDNT_ORDER_YET_MESSAGE
+    else:
+        return format_group_orders_with_date(last_five_orders, user__id_app=user_id)
+

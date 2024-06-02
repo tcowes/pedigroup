@@ -2,11 +2,12 @@ import os
 from django.test import TestCase
 from freezegun import freeze_time
 
-from backend.constants import GROUP_DIDNT_ORDER_YET_MESSAGE
+from backend.constants import GROUP_DIDNT_ORDER_YET_MESSAGE, USER_DIDNT_ORDER_YET_MESSAGE
 from backend.exceptions import WrongHeadersForCsv
 from backend.models import Product, Restaurant
-from backend.service import create_entities_through_csv, get_last_five_orders_from_group_as_string
-from backend.test.factories.factories import GroupFactory, OrderFactory, ProductFactory
+from backend.service import create_entities_through_csv, get_last_five_orders_from_group_as_string, \
+    get_last_five_orders_from_user_in_group_as_string
+from backend.test.factories.factories import GroupFactory, OrderFactory, ProductFactory, UserFactory
 
 
 class TestCsvLoader(TestCase):
@@ -100,3 +101,39 @@ class TestOrderRecord(TestCase):
         for i in range(6):
             group.place_group_order([OrderFactory()])
         self.assertEqual(get_last_five_orders_from_group_as_string(group.id_app).count("se pidió:"), 5)
+
+    def test_user_with_no_orders_in_group_shows_specific_message(self):
+        group = GroupFactory()
+        user = UserFactory()
+        user.join_the_group(group)
+        self.assertEqual(
+            get_last_five_orders_from_user_in_group_as_string(user.id_app, group.id_app), USER_DIDNT_ORDER_YET_MESSAGE
+        )
+
+    def test_user_with_orders_in_group_shows_specific_message_with_his_orders(self):
+        group = GroupFactory()
+        user_1, user_2 = UserFactory.create_batch(2)
+        user_1.join_the_group(group)
+        user_2.join_the_group(group)
+
+        with freeze_time("2024/06/08"):
+            group.place_group_order([
+                OrderFactory(product=ProductFactory(name="Sushi"), quantity=1, user=user_1),
+                OrderFactory(product=ProductFactory(name="Empanada de atún"), quantity=1, user=user_1),
+                OrderFactory(product=ProductFactory(name="Picada"), quantity=1, user=user_2),
+            ])
+        with freeze_time("2024/06/09"):
+            group.place_group_order([
+                OrderFactory(product=ProductFactory(name="Papas fritas"), quantity=2, user=user_1),
+                OrderFactory(product=ProductFactory(name="Milanesa"), quantity=1, user=user_2),
+            ])
+        expected_message = (
+            "El 09/06/2024 se pidió:\n"
+            "\t • Papas fritas: 2\n\n"
+            "El 08/06/2024 se pidió:\n"
+            "\t • Sushi: 1\n"
+            "\t • Empanada de atún: 1"
+        )
+        self.assertEqual(
+            get_last_five_orders_from_user_in_group_as_string(user_1.id_app, group.id_app), expected_message
+        )
