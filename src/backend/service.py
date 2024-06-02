@@ -98,3 +98,6 @@ def get_last_five_orders_from_user_in_group_as_string(user_id: int, group_id: in
     else:
         return format_group_orders_with_date(last_five_orders, user__id_app=user_id)
 
+
+def get_user_groups(user_id: int) -> List[Group]:
+    return Group.objects.filter(users__id_app=user_id)

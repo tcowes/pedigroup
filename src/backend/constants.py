@@ -46,6 +46,7 @@ GROUP_DIDNT_ORDER_YET_MESSAGE = (
     "Todavía no se hicieron pedidos grupales... Se pueden realizar pedidos con /iniciar_pedido 😊"
 )
 USER_DIDNT_ORDER_YET_MESSAGE = "Todavía no hiciste ningún pedido desde este grupo..."
+USER_NOT_IN_GROUPS_YET_MESSAGE = "Todavía no estás dentro de ningun grupo en el que me hayan usado para hacer pedidos!"
 
 # Texto de botones
 NEXT_BUTTON = "Siguiente ▶"
