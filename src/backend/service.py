@@ -1,5 +1,5 @@
 import csv
-from typing import List, Tuple, Union, TextIO, Dict
+from typing import List, Tuple, Union, TextIO
 
 from telegram import User as TelegramUser, Chat
 from django.db import transaction
@@ -57,10 +57,9 @@ def create_entities_through_csv(csv_file: Union[TextIO, str], group_id: int) -> 
     return created_restaurants, created_products, omitted_rows
 
 
-def register_group_and_user_if_required(group: Chat, user_app: TelegramUser):
-    if not Group.objects.filter(id_app__contains=group.id).exists():
-        Group.objects.create(name=group.title, id_app=group.id)
-    register_user_and_add_to_group_if_required(user_app, group.id)
+def register_group_and_user_if_required(chat: Chat, user_app: TelegramUser):
+    group, _ = Group.objects.get_or_create(id_app=chat.id, name=chat.title)
+    register_user_and_add_to_group_if_required(user_app, group.id_app)
 
 
 def register_user_and_add_to_group_if_required(user_app: TelegramUser, group_id: int):
@@ -75,11 +74,9 @@ def register_user_order(product: Product, quantity: int, user: TelegramUser):
     return pedigroup_user.place_order(product, quantity)
 
 
-def register_group_order(pedigroup_group: Group, user_orders: List[Order]):
-    group_order = GroupOrder.objects.create(group=pedigroup_group)
-    for user_order in user_orders:
-        group_order.add_order(user_order)
-    return group_order
+def register_group_order(group_id: int, user_orders: List[Order]) -> GroupOrder:
+    group = Group.objects.get(id_app=group_id)
+    return group.place_group_order(user_orders)  # TODO: si user_orders es vacía, no habría que crear nada... PED-44
 
 
 def get_last_five_orders_from_group_as_string(group_id: int) -> str:

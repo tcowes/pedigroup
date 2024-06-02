@@ -39,7 +39,7 @@ class Group(models.Model):
             raise CannotBeRemovedException("No se puede remover un usuario el cual no pertenece al grupo")
         self.users.remove(user)
 
-    def place_group_order(self, orders: list['Order']):
+    def place_group_order(self, orders: list['Order']) -> 'GroupOrder':
         group_order = GroupOrder(group=self, created_at=timezone.now())
         group_order.save()
         for order in orders:

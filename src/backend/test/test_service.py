@@ -94,3 +94,9 @@ class TestOrderRecord(TestCase):
             "\t • Picada: 1"
         )
         self.assertEqual(get_last_five_orders_from_group_as_string(group.id_app), expected_message)
+
+    def test_group_with_orders_only_show_message_for_last_five_orders(self):
+        group = GroupFactory()
+        for i in range(6):
+            group.place_group_order([OrderFactory()])
+        self.assertEqual(get_last_five_orders_from_group_as_string(group.id_app).count("se pidió:"), 5)

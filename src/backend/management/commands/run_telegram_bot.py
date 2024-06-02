@@ -24,7 +24,7 @@ from backend.service import (
     register_group_and_user_if_required,
     register_user_order,
     register_user_and_add_to_group_if_required,
-    register_group_order
+    register_group_order, get_last_five_orders_from_group_as_string
 )
 from django.core.management.base import BaseCommand
 
@@ -93,16 +93,15 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
     group_id = int(query.data.removeprefix("Finalizar pedido "))
-    group = Group.objects.get(id_app=group_id)  # TODO: Esta query tendría que extraerse a service
     user = query.from_user
     register_user_and_add_to_group_if_required(user, group_id)
 
-    logger.info(f"{user.first_name} ({user.id}) {group.name} ({group_id}) finished the current order")
+    logger.info(f"{user.first_name} ({user.id}) (group_id: {group_id}) finished the current order")
     group_order = current_user_orders[group_id]
     current_user_orders[group_id] = []
     orders_initiated[group_id] = False
 
-    pedigroup_group_order = register_group_order(group, group_order)
+    pedigroup_group_order = register_group_order(group_id, group_order)
     formatted_order = format_order(group_order)
     await query.edit_message_text(
         f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\nPrecio estimado: ${pedigroup_group_order.estimated_price}", 
@@ -533,10 +532,13 @@ async def start_csv_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_order_record(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
     if update.message.chat.type == Chat.PRIVATE:
         await update.message.reply_text(ONLY_IN_GROUPS_MESSAGE)
     else:
-        group_id = update.message.chat.id
+        group = update.message.chat
+        register_group_and_user_if_required(group, user)
+        await update.message.reply_text(get_last_five_orders_from_group_as_string(group.id))
 
 
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE):

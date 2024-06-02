@@ -21,13 +21,6 @@ class UserFactory(factory.django.DjangoModelFactory):
         model = User
 
 
-class OrderFactory(factory.django.DjangoModelFactory):
-    user = factory.SubFactory(UserFactory)
-
-    class Meta:
-        model = Order
-
-
 class RestaurantFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Restaurant
@@ -38,3 +31,12 @@ class ProductFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = Product
+
+
+class OrderFactory(factory.django.DjangoModelFactory):
+    user = factory.SubFactory(UserFactory)
+    product = factory.SubFactory(ProductFactory)
+    quantity = 1
+
+    class Meta:
+        model = Order
