@@ -465,11 +465,12 @@ async def start_command_misused(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # TODO: esto lo seguimos necesitando?
-    await update.message.reply_text(
-        "Bienvenido a PediGroup, para registrar un pedido individual debe iniciar "
-        "uno grupal con el mensaje /iniciar_pedido"
-    )
+    new_members = update.message.new_chat_members
+    bot_id = context.bot.id
+    for member in new_members:
+        if member.id == bot_id:
+            group_id = update.message.chat_id
+            await context.bot.send_message(group_id, "Bienvenidos a PediGroup!\n\n" + HELP_MESSAGE)
     return ConversationHandler.END
 
 
@@ -585,6 +586,7 @@ def start_bot():
     application.add_handler(CommandHandler(LOAD_CSV_COMMAND.command, start_csv_upload))
     application.add_handler(MessageHandler(filters.Document.FileExtension("csv"), load_csv))
     application.add_handler(CommandHandler(HELP_COMMAND.command, show_help))
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, start_message))
 
     orders_record_handler = ConversationHandler(
         entry_points=[CommandHandler(SHOW_ORDER_RECORD_COMMAND.command, show_order_record)],
