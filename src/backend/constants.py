@@ -40,8 +40,20 @@ NO_ORDER_INITIATED_MESSAGE = (
 NO_RESTAURANTS_FOUND_MESSAGE = (
     "Aún no se cargaron restaurantes en tu grupo, podés hacerlo siguiendo las instrucciones del bot en el grupo"
 )
+DO_NOT_USE_IT_LIKE_THIS_MESSAGE = (
+    "Este comando solo debe utilizarse luego de seleccionar la opcion _Contactar al bot_ desde un grupo"
+)
 PICK_RESTAURANTS_MESSAGE = "Seleccioná a que restaurante te gustaría pedir:"
 PICK_PRODUCTS_MESSAGE = "Seleccioná que producto te gustaría pedir:"
+PICK_QUANTITY_MESSAGE = lambda product_name: (
+    f"Ingrese la cantidad de {product_name} que quisieras pedir:"
+)
+CONTINUE_ADDING_ORDERS_MESSAGE = (
+    "Para continuar añadiendo pedidos individuales o finalizar seleccione alguna de las siguientes opciones:"
+)
+INDIVIDUAL_ORDERS_COMPLETED_MESSAGE = lambda group_name: (
+    f"Haz finalizado tus pedidos individuales! Para finalizar el pedido grupal debes hacerlo desde el chat de grupo de _{group_name}_."
+)
 GROUP_DIDNT_ORDER_YET_MESSAGE = (
     "Todavía no se hicieron pedidos grupales... Se pueden realizar pedidos con /iniciar_pedido 😊"
 )

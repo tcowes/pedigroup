@@ -290,7 +290,7 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
 async def message_to_select_quantity(context: ContextTypes.DEFAULT_TYPE, query: CallbackQuery, 
                                   pedigroup_product: Product, reply_markup):
     await context.bot.edit_message_text(
-        text=f"Ingrese la cantidad de {pedigroup_product.name.lower()} que quisieras pedir:",
+        text=PICK_QUANTITY_MESSAGE(pedigroup_product.name.lower()),
         chat_id=query.message.chat_id,
         message_id=query.message.message_id,
         reply_markup=reply_markup)
@@ -323,7 +323,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
 
     await query.message.reply_text(
-        text="Para continuar añadiendo pedidos individuales o finalizar seleccione alguna de las siguientes opciones:",
+        text=CONTINUE_ADDING_ORDERS_MESSAGE,
         reply_markup=reply_markup
     )
 
@@ -486,7 +486,7 @@ async def individual_order_message_finalized(context: ContextTypes.DEFAULT_TYPE,
 
 async def start_command_misused(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Este comando solo debe utilizarse luego de seleccionar la opcion _Contactar al bot_ desde un grupo",
+        DO_NOT_USE_IT_LIKE_THIS_MESSAGE,
         parse_mode="Markdown"
     )
     return ConversationHandler.END
@@ -510,7 +510,7 @@ async def finalize_individual_order(update: Update, context: ContextTypes.DEFAUL
     editable_user_order_messages[user.id] = []
 
     await context.bot.edit_message_text(
-        text=f"Haz finalizado tus pedidos individuales! Para finalizar el pedido grupal debes hacerlo desde el chat de grupo de _{group_name}_.",
+        text=INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name),
         chat_id=query.message.chat_id,
         message_id=query.message.message_id,
         reply_markup=None,
