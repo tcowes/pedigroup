@@ -12,8 +12,13 @@ LOAD_CSV_COMMAND_DESC = (
 LOAD_CSV_COMMAND = BotCommand(command="cargar_csv", description=LOAD_CSV_COMMAND_DESC)
 HELP_COMMAND_DESC = "Para ver una explicación básica del funcionamiento del bot."
 HELP_COMMAND = BotCommand(command="help", description=HELP_COMMAND_DESC)
+SHOW_ORDER_RECORD_COMMAND_DESC = (
+    "Muestra los últimos 5 pedidos realizados por el grupo. Si se llama desde una conversación individual se muestran"
+    " los últimos 5 pedidos del usuario, filtrando por grupo."
+)
+SHOW_ORDER_RECORD_COMMAND = BotCommand(command="historial_de_pedidos", description=SHOW_ORDER_RECORD_COMMAND_DESC)
 
-ALL_COMMANDS = [START_ORDER_COMMAND, LOAD_CSV_COMMAND, HELP_COMMAND]
+ALL_COMMANDS = [START_ORDER_COMMAND, LOAD_CSV_COMMAND, HELP_COMMAND, SHOW_ORDER_RECORD_COMMAND]
 
 # Mensajes que arroja el bot
 HELP_MESSAGE = (
@@ -37,6 +42,11 @@ NO_RESTAURANTS_FOUND_MESSAGE = (
 )
 PICK_RESTAURANTS_MESSAGE = "Seleccioná a que restaurante te gustaría pedir:"
 PICK_PRODUCTS_MESSAGE = "Seleccioná que producto te gustaría pedir:"
+GROUP_DIDNT_ORDER_YET_MESSAGE = (
+    "Todavía no se hicieron pedidos grupales... Se pueden realizar pedidos con /iniciar_pedido 😊"
+)
+USER_DIDNT_ORDER_YET_MESSAGE = "Todavía no hiciste ningún pedido desde este grupo..."
+USER_NOT_IN_GROUPS_YET_MESSAGE = "Todavía no estás dentro de ningun grupo en el que me hayan usado para hacer pedidos!"
 
 # Texto de botones
 NEXT_BUTTON = "Siguiente ▶"
