@@ -30,7 +30,7 @@ HELP_MESSAGE = (
 )
 USER_STARTED_ORDER_MESSAGE = (
     " inició un pedido!\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
-    "clickeando el botón _Contactar bot_!"
+    "clickeando el botón _Contactar bot_!\n"
 )
 IN_COURSE_ORDER_MESSAGE = "Ya hay un pedido en curso, finalizar clickeando el boton _Finalizar pedido_"
 ONLY_IN_GROUPS_MESSAGE = "Este comando solo puede llamarse desde un grupo."
