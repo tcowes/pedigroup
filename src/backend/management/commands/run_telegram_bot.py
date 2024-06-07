@@ -4,6 +4,7 @@ from django.conf import settings
 
 from backend.constants import *
 from backend.exceptions import WrongHeadersForCsv
+from backend.manager import GroupOrderManager, MessageWithMarkup
 from backend.models import Group, Order, Product, Restaurant
 
 import logging
@@ -57,6 +58,9 @@ MENU, TYPE_SELECTION, QUANTITY, MODIFY = range(4)
 GROUP_SELECTION_FOR_RECORD = 0
 
 
+manager = GroupOrderManager()
+
+
 async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == Chat.PRIVATE:
         await update.message.reply_text(ONLY_IN_GROUPS_MESSAGE)
@@ -69,24 +73,27 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_group_and_user_if_required(group, user)
 
     logger.info(f"{user.first_name} ({user.id}) {group.title} ({group_id}) called {'/iniciar_pedido'}")
-
     global orders_initiated
     global current_user_orders
     if not orders_initiated.get(group_id):
         orders_initiated[group_id] = False
         current_user_orders[group_id] = []
     reply_markup = InlineKeyboardMarkup([])
+    recently_initiated = False
     match orders_initiated.get(group_id):
         case False:
-            message = USER_STARTED_ORDER_MESSAGE(user.first_name)
+            message = f"{user.first_name}" + USER_STARTED_ORDER_MESSAGE
             reply_markup = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Contactar bot", url=f"t.me/{context.bot.username}?start={group_id}")],
                  [InlineKeyboardButton("Finalizar pedido", callback_data=f"Finalizar pedido {group_id}")]])
             orders_initiated[group_id] = True
+            recently_initiated = True
         case True:
             message = IN_COURSE_ORDER_MESSAGE
 
-    await context.bot.send_message(group_id, message, reply_markup=reply_markup, parse_mode="Markdown")
+    sent_message = await context.bot.send_message(group_id, message, reply_markup=reply_markup, parse_mode="Markdown")
+    if recently_initiated:
+        manager.add_group(group_id, sent_message.message_id, MessageWithMarkup(message, reply_markup))
 
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -98,6 +105,10 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     register_user_and_add_to_group_if_required(user, group_id)
 
+    if manager.has_on_going_orders(group_id):
+        await context.bot.send_message(group_id, THERE_ARE_ON_GOING_ORDERS_MESSAGE)
+        return
+
     logger.info(f"{user.first_name} ({user.id}) (group_id: {group_id}) finished the current order")
     group_order = current_user_orders[group_id]
     current_user_orders[group_id] = []
@@ -106,22 +117,28 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(group_order) > 0:
         pedigroup_group_order = register_group_order(group_id, group_order)
         formatted_order = format_order(group_order)
-        await query.edit_message_text(
-            f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\nPrecio estimado: ${pedigroup_group_order.estimated_price}",
-            reply_markup=None
+        await context.bot.send_message(
+            group_id,
+            f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\n"
+            f"Precio estimado: ${pedigroup_group_order.estimated_price}",
         )
     else:
-        await query.edit_message_text(
-            f"{user.first_name} finalizó el pedido, pero el mismo no fue registrado ya que no se realizaron pedidos individuales.",
-            reply_markup=None
+        await context.bot.send_message(
+            group_id,
+            f"{user.first_name} finalizó el pedido, pero el mismo no fue registrado ya que no se "
+            "realizaron pedidos individuales.",
         )
+    manager.remove_group(group_id)
+    await query.delete_message()
 
 
 async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_with_group_id = update.message.text
     group_id = int(message_with_group_id.removeprefix("/start "))
     pedigroup_group = Group.objects.get(id_app=group_id)
+    user = update.message.from_user
     group_name = pedigroup_group.name
+    await manager.add_currently_ordering_user(user.id, user.first_name, group_id, context)
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir YES|{group_id}|{group_name}")]])
     await update.message.reply_text(f"Bienvenido a PediGroup, queres añadir pedidos individuales para _{group_name}_?",
@@ -308,7 +325,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton(ADD_PRODUCTS_BUTTON, callback_data=f"menu {restaurant_id}|NO|{group_id}|{group_name}")],
-        [InlineKeyboardButton(FINISH_INDIVIDUAL_ORDERS, callback_data=f"pedido finalizado {group_name}")]
+        [InlineKeyboardButton(FINISH_INDIVIDUAL_ORDERS, callback_data=f"pedido finalizado {group_id}|{group_name}")]
     ])
 
     await query.message.reply_text(
@@ -477,7 +494,9 @@ async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def finalize_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user = query.from_user
-    group_name = query.data.removeprefix("pedido finalizado ")
+    group_id, group_name = query.data.removeprefix("pedido finalizado ").split("|")
+
+    await manager.remove_currently_ordering_user(user.id, int(group_id), context)
     for message in editable_user_order_messages.get(user.id):
         await message.edit_reply_markup(None)
     editable_user_order_messages[user.id] = []
