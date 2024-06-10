@@ -28,9 +28,9 @@ HELP_MESSAGE = (
     " ahí, el bot va indicando cuales son los pasos a seguir.\n\n"
     f"Listado de comandos:\n{''.join([f' - /{bot_com.command} {bot_com.description}\n' for bot_com in ALL_COMMANDS])}"
 )
-USER_STARTED_ORDER_MESSAGE = lambda username: (
-    f"{username} inició un pedido!\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
-    "clickeando el siguiente botón ↓"
+USER_STARTED_ORDER_MESSAGE = (
+    " inició un pedido!\n\nQuienes quieran pedir deben contactarse conmigo mediante un chat privado "
+    "clickeando el botón _Contactar bot_!\n"
 )
 IN_COURSE_ORDER_MESSAGE = "Ya hay un pedido en curso, finalizar clickeando el boton _Finalizar pedido_"
 ONLY_IN_GROUPS_MESSAGE = "Este comando solo puede llamarse desde un grupo."
@@ -59,6 +59,7 @@ GROUP_DIDNT_ORDER_YET_MESSAGE = (
 )
 USER_DIDNT_ORDER_YET_MESSAGE = "Todavía no hiciste ningún pedido desde este grupo..."
 USER_NOT_IN_GROUPS_YET_MESSAGE = "Todavía no estás dentro de ningun grupo en el que me hayan usado para hacer pedidos!"
+THERE_ARE_ON_GOING_ORDERS_MESSAGE = "Todavía hay gente que está armando su pedido por lo que no se puede finalizar...🙈"
 
 # Texto de botones
 NEXT_BUTTON = "Siguiente ▶"
