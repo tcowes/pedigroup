@@ -625,18 +625,15 @@ def start_bot():
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$')],
         states={
             MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
-                   CallbackQueryHandler(show_restaurants, pattern=r'^Anterior(?:\s+(.*))?$'),
-                   CallbackQueryHandler(show_restaurants, pattern=r'^Siguiente(?:\s+(.*))?$')],
+                   CallbackQueryHandler(show_restaurants)],
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern=r"^\d+.*"),
-                             CallbackQueryHandler(show_menu, pattern=r'^Anterior(?:\s+(.*))?$'),
-                             CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$'),
-                             CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$')],
+                             CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$'),
+                             CallbackQueryHandler(show_menu)],
             QUANTITY: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                        CallbackQueryHandler(handle_quantity)],
-            MODIFY: [CallbackQueryHandler(show_modify_product, pattern=r'^Anterior(?:\s+(.*))?$'),
-                     CallbackQueryHandler(show_modify_product, pattern=r'^Siguiente(?:\s+(.*))?$'),
-                     CallbackQueryHandler(finish_modify_quantity_order, pattern=r'^modificado(?:\s+(.*))?$'),
-                     CallbackQueryHandler(finish_modify_product_order, pattern=r"^\d+.*")]
+            MODIFY: [CallbackQueryHandler(finish_modify_quantity_order, pattern=r'^modificado(?:\s+(.*))?$'),
+                     CallbackQueryHandler(finish_modify_product_order, pattern=r"^\d+.*"),
+                     CallbackQueryHandler(show_modify_product)]
         },
         fallbacks=[],
     )
