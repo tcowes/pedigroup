@@ -37,13 +37,17 @@ class GroupOrderManager:
         index_initial = new_message.find(f"{user_name} 🔁")
         if index_initial == -1:
             index_finish = new_message.find(f"{user_name} ✅")
-            if index_finish == -1:
-                new_message = new_message + f"\n{user_name} 🔁"
-            else: 
-                new_message = new_message.replace(f"{user_name} ✅", f"{user_name} 🔁")
+            new_message = self.update_message(user_name, new_message, index_finish)
             self._message_references[group_id].message = new_message
             message_id = self._groups[group_id][1]
             await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup, parse_mode="Markdown")
+
+    def update_message(self, user_name, new_message: str, index_finish: int):
+        if index_finish == -1:
+            new_message = new_message + f"\n{user_name} 🔁"
+        else: 
+            new_message = new_message.replace(f"{user_name} ✅", f"{user_name} 🔁")
+        return new_message
 
     async def remove_currently_ordering_user(self, user_id, group_id, context: ContextTypes.DEFAULT_TYPE):
         if group_id not in self._groups:
