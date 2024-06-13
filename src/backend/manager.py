@@ -33,7 +33,7 @@ class GroupOrderManager:
         new_message = message_reference.message + f"\n{user_name} está haciendo su pedido... 🔁"
         self._message_references[group_id].message = new_message
         message_id = self._groups[group_id][1]
-        await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup)
+        await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup, parse_mode="Markdown")
 
     async def remove_currently_ordering_user(self, user_id, group_id, context: ContextTypes.DEFAULT_TYPE):
         if group_id not in self._groups:
