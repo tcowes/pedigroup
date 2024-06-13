@@ -315,6 +315,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
+    register_user_and_add_to_group_if_required(user, group_id)
     pedigroup_order = register_user_order(pedigroup_product, quantity, user)
 
     reply_markup = show_modify_buttons(quantity, group_id, group_name, restaurant_id, 
@@ -333,7 +334,6 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    register_user_and_add_to_group_if_required(user, group_id)
     current_user_orders.get(group_id).append(pedigroup_order)
 
     if not editable_user_order_messages.get(user.id):
