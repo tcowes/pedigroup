@@ -315,6 +315,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
 
+    register_user_and_add_to_group_if_required(user, group_id)
     pedigroup_order = register_user_order(pedigroup_product, quantity, user)
 
     reply_markup = show_modify_buttons(quantity, group_id, group_name, restaurant_id, 
@@ -333,7 +334,6 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    register_user_and_add_to_group_if_required(user, group_id)
     current_user_orders.get(group_id).append(pedigroup_order)
 
     if not editable_user_order_messages.get(user.id):
@@ -625,18 +625,15 @@ def start_bot():
                       CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$')],
         states={
             MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
-                   CallbackQueryHandler(show_restaurants, pattern=r'^Anterior(?:\s+(.*))?$'),
-                   CallbackQueryHandler(show_restaurants, pattern=r'^Siguiente(?:\s+(.*))?$')],
+                   CallbackQueryHandler(show_restaurants)],
             TYPE_SELECTION: [CallbackQueryHandler(handle_type_selection, pattern=r"^\d+.*"),
-                             CallbackQueryHandler(show_menu, pattern=r'^Anterior(?:\s+(.*))?$'),
-                             CallbackQueryHandler(show_menu, pattern=r'^Siguiente(?:\s+(.*))?$'),
-                             CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$')],
+                             CallbackQueryHandler(show_initial_restaurants, pattern=r'^pedir(?:\s+(.*))?$'),
+                             CallbackQueryHandler(show_menu)],
             QUANTITY: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                        CallbackQueryHandler(handle_quantity)],
-            MODIFY: [CallbackQueryHandler(show_modify_product, pattern=r'^Anterior(?:\s+(.*))?$'),
-                     CallbackQueryHandler(show_modify_product, pattern=r'^Siguiente(?:\s+(.*))?$'),
-                     CallbackQueryHandler(finish_modify_quantity_order, pattern=r'^modificado(?:\s+(.*))?$'),
-                     CallbackQueryHandler(finish_modify_product_order, pattern=r"^\d+.*")]
+            MODIFY: [CallbackQueryHandler(finish_modify_quantity_order, pattern=r'^modificado(?:\s+(.*))?$'),
+                     CallbackQueryHandler(finish_modify_product_order, pattern=r"^\d+.*"),
+                     CallbackQueryHandler(show_modify_product)]
         },
         fallbacks=[],
     )
