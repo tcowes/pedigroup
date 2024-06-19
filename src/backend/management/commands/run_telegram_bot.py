@@ -5,7 +5,7 @@ from django.conf import settings
 from backend.constants import *
 from backend.exceptions import WrongHeadersForCsv
 from backend.manager import GroupOrderManager, MessageWithMarkup
-from backend.models import Group, Order, Product, Restaurant
+from backend.models import Order, Product
 
 import logging
 from telegram import CallbackQuery, Chat, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage, Update
@@ -26,7 +26,8 @@ from backend.service import (
     register_user_order,
     register_user_and_add_to_group_if_required,
     register_group_order, get_last_five_orders_from_group_as_string, get_user_groups,
-    get_last_five_orders_from_user_in_group_as_string
+    get_last_five_orders_from_user_in_group_as_string, get_group, get_paginated_products_by_restaurant, get_product,
+    count_restaurants_for_group, get_restaurant, get_paginated_restaurants_by_group
 )
 from django.core.management.base import BaseCommand
 
@@ -135,7 +136,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_with_group_id = update.message.text
     group_id = int(message_with_group_id.removeprefix("/start "))
-    pedigroup_group = Group.objects.get(id_app=group_id)
+    pedigroup_group = get_group(group_id)
     user = update.message.from_user
     group_name = pedigroup_group.name
     await manager.add_currently_ordering_user(user.id, user.first_name, group_id, context)
@@ -155,7 +156,7 @@ async def show_initial_restaurants(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(NO_ORDER_INITIATED_MESSAGE)
         return
 
-    restaurants_count = Restaurant.objects.filter(group__id_app=group_id).count()
+    restaurants_count = count_restaurants_for_group(group_id)
     context.user_data['current_page'] = 0
     context.user_data['quantity_of_items'] = restaurants_count
 
@@ -191,7 +192,7 @@ async def show_initial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.edit_message_reply_markup(reply_markup=None)
     restaurant_id, if_first_message, group_id, group_name = query.data.removeprefix("menu ").split("|")
-    restaurant = Restaurant.objects.get(id=restaurant_id)
+    restaurant = get_restaurant(restaurant_id)
 
     context.user_data['restaurant_id'] = restaurant_id
     context.user_data['current_page'] = 0
@@ -245,13 +246,13 @@ def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id: i
     keyboard = []
 
     if items_to_show == "Restaurants":
-        restaurants = [rest for rest in Restaurant.objects.filter(group__id_app=group_id)[first_item:last_item]]
+        restaurants = [rest for rest in get_paginated_restaurants_by_group(group_id, first_item, last_item)]
         for restaurant in restaurants:
             keyboard.append([InlineKeyboardButton(restaurant.name,
                                                   callback_data=f"menu {restaurant.id}|NO|{group_id}|{group_name}")])
     elif items_to_show == "Products":
         restaurant_id = context.user_data['restaurant_id']
-        products = [prod for prod in Product.objects.filter(restaurant__id=restaurant_id)[first_item:last_item]]
+        products = [prod for prod in get_paginated_products_by_restaurant(restaurant_id, first_item, last_item)]
         for product in products:
             keyboard.append([InlineKeyboardButton(product.name,
                                                   callback_data=f"{product.id}|{restaurant_id}|{group_id}|{group_name}")])
@@ -276,7 +277,7 @@ def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id: i
 async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     product_id, restaurant_id, group_id, group_name = query.data.split("|")
-    pedigroup_product = Product.objects.get(id=product_id)
+    pedigroup_product = get_product(product_id)
 
     context.user_data['product_id'] = product_id
 
@@ -310,7 +311,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     group_id = int(group_id)
     product_id = context.user_data['product_id']
     restaurant_id = context.user_data['restaurant_id']
-    pedigroup_product = Product.objects.get(id=product_id)
+    pedigroup_product = get_product(product_id)
     user = query.from_user
 
     logger.info(f"{user.first_name} ({user.id}) {group_name} ({group_id}) added {quantity} {pedigroup_product.name}")
@@ -347,7 +348,7 @@ async def show_initial_modify_product(update: Update, context: ContextTypes.DEFA
     query = update.callback_query
     await query.edit_message_reply_markup(reply_markup=None)
     restaurant_id, order_id, quantity, group_id, group_name = query.data.removeprefix("modificar producto ").split("|")
-    restaurant = Restaurant.objects.get(id=restaurant_id)
+    restaurant = get_restaurant(restaurant_id)
     order_id = int(order_id)
 
     context.user_data['restaurant_id'] = restaurant_id
@@ -376,7 +377,7 @@ async def finish_modify_product_order(update: Update, context: ContextTypes.DEFA
     quantity = context.user_data['quantity']
     order_id = context.user_data['order_id']
     group_id = int(group_id)
-    pedigroup_product = Product.objects.get(id=product_id)
+    pedigroup_product = get_product(product_id)
     user = query.from_user
 
     logger.info(
@@ -396,7 +397,7 @@ async def finish_modify_product_order(update: Update, context: ContextTypes.DEFA
 async def show_modify_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     restaurant_id, order_id, product_id, group_id, group_name = query.data.removeprefix("modificar cantidad ").split("|")
-    pedigroup_product = Product.objects.get(id=product_id)
+    pedigroup_product = get_product(product_id)
     order_id = int(order_id)
 
     context.user_data['restaurant_id'] = restaurant_id
@@ -423,7 +424,7 @@ async def finish_modify_quantity_order(update: Update, context: ContextTypes.DEF
     restaurant_id = context.user_data['restaurant_id']
     order_id = context.user_data['order_id']
     product_id = context.user_data['product_id']
-    pedigroup_product = Product.objects.get(id=product_id)
+    pedigroup_product = get_product(product_id)
     user = query.from_user
 
     logger.info(
