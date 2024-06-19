@@ -117,10 +117,11 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if len(group_order) > 0:
         pedigroup_group_order = register_group_order(group_id, group_order)
-        formatted_order = format_order(group_order)
+        formatted_order, total_quantity = format_order(group_order)
         await context.bot.send_message(
             group_id,
             f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\n"
+            f"Cantidad total de productos: {total_quantity}\n\n"
             f"Precio estimado: ${pedigroup_group_order.estimated_price}",
         )
     else:
