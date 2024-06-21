@@ -101,3 +101,27 @@ def get_last_five_orders_from_user_in_group_as_string(user_id: int, group_id: in
 
 def get_user_groups(user_id: int) -> List[Group]:
     return Group.objects.filter(users__id_app=user_id)
+
+
+def get_group(group_id):
+    return Group.objects.get(id_app=group_id)
+
+
+def get_product(product_id):
+    return Product.objects.get(id=product_id)
+
+
+def get_restaurant(restaurant_id):
+    return Restaurant.objects.get(id=restaurant_id)
+
+
+def get_paginated_products_by_restaurant(restaurant_id, first_item, last_item):
+    return Product.objects.filter(restaurant__id=restaurant_id)[first_item:last_item]
+
+
+def get_paginated_restaurants_by_group(group_id, first_item, last_item):
+    return Restaurant.objects.filter(group__id_app=group_id)[first_item:last_item]
+
+
+def count_restaurants_for_group(group_id):
+    return Restaurant.objects.filter(group__id_app=group_id).count()
