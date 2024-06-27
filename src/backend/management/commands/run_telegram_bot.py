@@ -272,6 +272,8 @@ def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id: i
         keyboard.append(
             [InlineKeyboardButton(BACK_TO_RESTAURANTS_BUTTON, callback_data=f"pedir NO|{group_id}|{group_name}")])
 
+    keyboard.append([InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data="cancelar pedido")])
+
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -289,6 +291,8 @@ async def handle_type_selection(update: Update, context: ContextTypes.DEFAULT_TY
                          InlineKeyboardButton(i + 2, callback_data=f"{i + 2}|{group_id}|{group_name}")])
     keyboard.append([InlineKeyboardButton(BACK_TO_PRODUCTS_BUTTON,
                                           callback_data=f"menu {restaurant_id}|NO|{group_id}|{group_name}")])
+
+    keyboard.append([InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data="cancelar pedido")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await message_to_select_quantity(context, query, pedigroup_product, reply_markup)
@@ -411,6 +415,8 @@ async def show_modify_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
                          InlineKeyboardButton(i + 1, callback_data=f"modificado {i + 1}|{group_id}|{group_name}"),
                          InlineKeyboardButton(i + 2, callback_data=f"modificado {i + 2}|{group_id}|{group_name}")])
 
+    keyboard.append([InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data="cancelar pedido")])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     await message_to_select_quantity(context, query, pedigroup_product, reply_markup)
 
@@ -505,6 +511,18 @@ async def finalize_individual_order(update: Update, context: ContextTypes.DEFAUL
 
     await context.bot.edit_message_text(
         text=INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name),
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id,
+        reply_markup=None,
+        parse_mode="Markdown"
+    )
+    return ConversationHandler.END
+
+
+async def cancel_on_going_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await context.bot.edit_message_text(
+        text=ON_GOING_ORDER_CANCELLED_MESSAGE,
         chat_id=query.message.chat_id,
         message_id=query.message.message_id,
         reply_markup=None,
@@ -624,7 +642,8 @@ def start_bot():
                       CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_initial_modify_product, pattern=r'^modificar producto(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_modify_quantity, pattern=r'^modificar cantidad(?:\s+(.*))?$'),
-                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$')],
+                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$'),
+                      CallbackQueryHandler(cancel_on_going_order, pattern=r'^cancelar pedido$'),],
         states={
             MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                    CallbackQueryHandler(show_restaurants)],
