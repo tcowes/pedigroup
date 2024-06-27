@@ -3,15 +3,7 @@ from typing import Tuple
 
 from backend.models import Order, GroupOrder
 
-def format_order(orders: list[Order]) -> Tuple[str, int]:
-    grouped_order = defaultdict(lambda: 0)
-    total_quantity = 0
-    for order in orders:
-        grouped_order[order.product_name()] += order.quantity
-        total_quantity += order.quantity
-    return "\n".join([f"\t • {prod_name}: {n}" for prod_name, n in grouped_order.items()]), total_quantity
-
-def format_individual_orders(orders: list[Order]) -> Tuple[str, int, int]:
+def format_order(orders: list[Order]) -> Tuple[str, int, int]:
     grouped_orders = defaultdict(lambda: 0)
     total_quantity = 0
     estimated_price = 0

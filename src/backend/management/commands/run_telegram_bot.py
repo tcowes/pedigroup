@@ -31,7 +31,7 @@ from backend.service import (
 )
 from django.core.management.base import BaseCommand
 
-from backend.utils import format_individual_orders, format_order
+from backend.utils import format_order
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -116,13 +116,13 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     orders_initiated[group_id] = False
 
     if len(group_order) > 0:
-        pedigroup_group_order = register_group_order(group_id, group_order)
-        formatted_order, total_quantity = format_order(group_order)
+        register_group_order(group_id, group_order)
+        formatted_order, total_quantity, estimated_price = format_order(group_order)
         await context.bot.send_message(
             group_id,
             f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\n"
             f"Cantidad total de productos: {total_quantity}\n\n"
-            f"Precio estimado: ${pedigroup_group_order.estimated_price}",
+            f"Precio estimado: ${estimated_price}",
         )
     else:
         await context.bot.send_message(
@@ -511,9 +511,9 @@ async def finalize_individual_order(update: Update, context: ContextTypes.DEFAUL
     individual_orders = current_user_orders[group_id][user.id]
 
     if len(individual_orders) > 0:
-        formatted_order, total_quantity, estimated_price = format_individual_orders(individual_orders)
+        formatted_order, total_quantity, estimated_price = format_order(individual_orders)
         await context.bot.edit_message_text(
-            text=f"Finalizaste tus pedidos individuales para _{group_name}_!\n\nPediste:\n{formatted_order}\n\n"
+            text=f"{INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name)}\n\nPediste:\n{formatted_order}\n\n"
                  f"Cantidad total de productos: {total_quantity}\n\n"
                  f"Precio estimado: ${estimated_price}\n\n"
                  "Para finalizar el pedido grupal debes hacerlo desde el chat del grupo.",
@@ -524,7 +524,7 @@ async def finalize_individual_order(update: Update, context: ContextTypes.DEFAUL
         )
     else:
         await context.bot.edit_message_text(
-            text=INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name),
+            text=NULL_INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name),
             chat_id=query.message.chat_id,
             message_id=query.message.message_id,
             reply_markup=None,
