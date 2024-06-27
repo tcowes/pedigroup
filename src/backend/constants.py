@@ -52,7 +52,10 @@ CONTINUE_ADDING_ORDERS_MESSAGE = (
     "Para continuar añadiendo pedidos individuales o finalizar seleccione alguna de las siguientes opciones:"
 )
 INDIVIDUAL_ORDERS_COMPLETED_MESSAGE = lambda group_name: (
-    f"Haz finalizado tus pedidos individuales! Para finalizar el pedido grupal debes hacerlo desde el chat de grupo de _{group_name}_."
+    f"Finalizaste tus pedidos individuales para _{group_name}_!"
+)
+NULL_INDIVIDUAL_ORDERS_COMPLETED_MESSAGE = lambda group_name: (
+    f"Finalizaste tus pedidos individuales para _{group_name}_, pero no añadiste nada 😔. Para finalizar el pedido grupal debes hacerlo desde el chat del grupo."
 )
 GROUP_DIDNT_ORDER_YET_MESSAGE = (
     "Todavía no se hicieron pedidos grupales... Se pueden realizar pedidos con /iniciar_pedido 😊"

@@ -50,8 +50,8 @@ class Command(BaseCommand):
 
 # Variable global para trackear el estado de un pedido.
 orders_initiated: Dict[int, bool] = {}
-# Variable global para ir almacenando los pedidos
-current_user_orders: Dict[int, list[Order]] = {}
+# Variable global para ir almacenando los pedidos individuales de cada grupo diferenciados por usuario
+current_user_orders: Dict[int, Dict[int, list[Order]]] = {}
 # Variable global para almacenar los mensajes de los pedidos individuales que se pueden editar actualmente
 editable_user_order_messages: Dict[int, list[MaybeInaccessibleMessage]] = {}
 
@@ -78,7 +78,7 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global current_user_orders
     if not orders_initiated.get(group_id):
         orders_initiated[group_id] = False
-        current_user_orders[group_id] = []
+        current_user_orders[group_id] = {}
     reply_markup = InlineKeyboardMarkup([])
     recently_initiated = False
     match orders_initiated.get(group_id):
@@ -111,18 +111,18 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     logger.info(f"{user.first_name} ({user.id}) (group_id: {group_id}) finished the current order")
-    group_order = current_user_orders[group_id]
-    current_user_orders[group_id] = []
+    group_order = [order for individual_orders in current_user_orders[group_id].values() for order in individual_orders]
+    current_user_orders[group_id] = {}
     orders_initiated[group_id] = False
 
     if len(group_order) > 0:
-        pedigroup_group_order = register_group_order(group_id, group_order)
-        formatted_order, total_quantity = format_order(group_order)
+        register_group_order(group_id, group_order)
+        formatted_order, total_quantity, estimated_price = format_order(group_order)
         await context.bot.send_message(
             group_id,
             f"{user.first_name} finalizó el pedido!\n\nEn total se pidieron:\n{formatted_order}\n\n"
             f"Cantidad total de productos: {total_quantity}\n\n"
-            f"Precio estimado: ${pedigroup_group_order.estimated_price}",
+            f"Precio estimado: ${estimated_price}",
         )
     else:
         await context.bot.send_message(
@@ -140,6 +140,8 @@ async def start_individual_order(update: Update, context: ContextTypes.DEFAULT_T
     pedigroup_group = get_group(group_id)
     user = update.message.from_user
     group_name = pedigroup_group.name
+    if not current_user_orders.get(group_id).get(user.id):
+        current_user_orders[group_id][user.id] = []
     await manager.add_currently_ordering_user(user.id, user.first_name, group_id, context)
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton("Realizar pedido individual", callback_data=f"pedir YES|{group_id}|{group_name}")]])
@@ -336,7 +338,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    current_user_orders.get(group_id).append(pedigroup_order)
+    current_user_orders.get(group_id).get(user.id).append(pedigroup_order)
 
     if not editable_user_order_messages.get(user.id):
         editable_user_order_messages[user.id] = []
@@ -384,7 +386,7 @@ async def finish_modify_product_order(update: Update, context: ContextTypes.DEFA
     logger.info(
         f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order ({order_id}) with {quantity} {pedigroup_product.name}")
 
-    pedigroup_order = modify_pedigroup_order("product", pedigroup_product, group_id, order_id)
+    pedigroup_order = modify_pedigroup_order("product", pedigroup_product, group_id, order_id, user.id)
 
     reply_markup = show_modify_buttons(quantity, group_id, group_name, restaurant_id, 
                                        pedigroup_product, pedigroup_order)
@@ -431,7 +433,7 @@ async def finish_modify_quantity_order(update: Update, context: ContextTypes.DEF
     logger.info(
         f"{user.first_name} ({user.id}) {group_name} ({group_id}) modify his order ({order_id}) with {quantity} {pedigroup_product.name}")
 
-    pedigroup_order = modify_pedigroup_order("quantity", quantity, group_id, order_id)
+    pedigroup_order = modify_pedigroup_order("quantity", quantity, group_id, order_id, user.id)
 
     reply_markup = show_modify_buttons(quantity, group_id, group_name, restaurant_id, 
                                        pedigroup_product, pedigroup_order)
@@ -442,14 +444,14 @@ async def finish_modify_quantity_order(update: Update, context: ContextTypes.DEF
     return ConversationHandler.END
 
 
-def modify_pedigroup_order(data_to_be_modified, data, group_id: int, order_id: int):
-    pedigroup_order = next((order for order in current_user_orders.get(group_id) if order.id == order_id), None)
+def modify_pedigroup_order(data_to_be_modified, data, group_id: int, order_id: int, user_id: int):
+    pedigroup_order = next((order for order in current_user_orders.get(group_id).get(user_id) if order.id == order_id), None)
     if data_to_be_modified == "product":
         pedigroup_order.modify_product(data)
     elif data_to_be_modified == "quantity":
         pedigroup_order.modify_quantity(data)
-    current_user_orders[group_id] = [order for order in current_user_orders.get(group_id) if order.id != order_id]
-    current_user_orders.get(group_id).append(pedigroup_order)
+    current_user_orders[group_id][user_id] = [order for order in current_user_orders.get(group_id).get(user_id) if order.id != order_id]
+    current_user_orders.get(group_id).get(user_id).append(pedigroup_order)
     return pedigroup_order
 
 
@@ -494,22 +496,40 @@ async def start_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def finalize_individual_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global current_user_orders
+    
     query = update.callback_query
     user = query.from_user
     group_id, group_name = query.data.removeprefix("pedido finalizado ").split("|")
+    group_id = int(group_id)
 
     await manager.remove_currently_ordering_user(user.id, int(group_id), context)
     for message in editable_user_order_messages.get(user.id):
-        await message.edit_reply_markup(None)
+        await context.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     editable_user_order_messages[user.id] = []
 
-    await context.bot.edit_message_text(
-        text=INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name),
-        chat_id=query.message.chat_id,
-        message_id=query.message.message_id,
-        reply_markup=None,
-        parse_mode="Markdown"
-    )
+    individual_orders = current_user_orders[group_id][user.id]
+
+    if len(individual_orders) > 0:
+        formatted_order, total_quantity, estimated_price = format_order(individual_orders)
+        await context.bot.edit_message_text(
+            text=f"{INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name)}\n\nPediste:\n{formatted_order}\n\n"
+                 f"Cantidad total de productos: {total_quantity}\n\n"
+                 f"Precio estimado: ${estimated_price}\n\n"
+                 "Para finalizar el pedido grupal debes hacerlo desde el chat del grupo.",
+            chat_id=query.message.chat_id,
+            message_id=query.message.message_id,
+            reply_markup=None,
+            parse_mode="Markdown"
+        )
+    else:
+        await context.bot.edit_message_text(
+            text=NULL_INDIVIDUAL_ORDERS_COMPLETED_MESSAGE(group_name),
+            chat_id=query.message.chat_id,
+            message_id=query.message.message_id,
+            reply_markup=None,
+            parse_mode="Markdown"
+        )
     return ConversationHandler.END
 
 
