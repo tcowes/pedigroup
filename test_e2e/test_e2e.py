@@ -1,11 +1,9 @@
 import logging
 from operator import contains
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 import time
+
+from utils import click_button, get_the_last_message_text, go_to_group_chat, send_command
 
 # Configurar el driver (asegúrate de que chromedriver esté en tu PATH)
 driver = webdriver.Chrome()
@@ -27,315 +25,80 @@ try:
     logger.info("arranquemos")
 
     # TEST GENERANDO UN PEDIDO
-    # Entramos en el chat del grupo
-    search_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//input[@placeholder="Search"]'))
-    )
-    search_box.send_keys("@PediTest")
-    search_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    search_box.send_keys(Keys.RETURN)
-
-    # Enviamos el comando para iniciar un pedido
-    message_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@dir="auto"]'))
-    )
-    message_box.send_keys("/iniciar_pedido")
-    message_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    
-    # Seleccionamos Contactar al bot
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Contactar bot"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos Realizar pedido individual
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Realizar pedido individual"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos restaurante
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Unq King"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos producto
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Lomo Con Queso"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos cantidad
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="3"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos Finalizar pedidos individuales
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Finalizar pedidos individuales"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Volvemos al chat del grupo
-    search_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//input[@placeholder="Search"]'))
-    )
-    search_box.send_keys("@PediTest")
-    search_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    search_box.send_keys(Keys.RETURN)
-
-    # Seleccionamos Finalizar pedido
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Finalizar pedido"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
+    go_to_group_chat(driver, "PediTest")
+    send_command(driver, "/iniciar_pedido")
+    click_button(driver, "Contactar bot")
+    click_button(driver, "Realizar pedido individual")
+    click_button(driver, "Unq King")
+    click_button(driver, "Lomo Con Queso")
+    click_button(driver, "3")
+    click_button(driver, "Finalizar pedidos individuales")
+    go_to_group_chat(driver, "PediTest")
+    click_button(driver, "Finalizar pedido")
 
     # Verificamos que se realizo el pedido de 3 Lomo Con Queso
-    message = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//div[@class="text-content clearfix with-meta"][@dir="auto"]'))
-    )
-    message_text = message[-1].text
+    message_text = get_the_last_message_text(driver)
 
     assert contains(message_text, "Lomo Con Queso: 3")
 
+
     # TEST GENERANDO UN PEDIDO UTILIZANDO LA PAGINACION
-    # Enviamos el comando para iniciar un pedido
-    message_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@dir="auto"]'))
-    )
-    message_box.send_keys("/iniciar_pedido")
-    message_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    
-    # Seleccionamos Contactar al bot
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Contactar bot"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos Realizar pedido individual
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Realizar pedido individual"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
+    send_command(driver, "/iniciar_pedido")
+    click_button(driver, "Contactar bot")
+    click_button(driver, "Realizar pedido individual")
     # Seleccionamos restaurante
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Siguiente "]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Cope"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
+    click_button(driver, "Siguiente ")
+    click_button(driver, "Cope")
     # Seleccionamos producto
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Siguiente "]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Siguiente "]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()=" Anterior"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Gran Cope"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos cantidad
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="1"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos Finalizar pedidos individuales
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Finalizar pedidos individuales"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Volvemos al chat del grupo
-    search_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//input[@placeholder="Search"]'))
-    )
-    search_box.send_keys("@PediTest")
-    search_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    search_box.send_keys(Keys.RETURN)
-
-    # Seleccionamos Finalizar pedido
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Finalizar pedido"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
+    click_button(driver, "Siguiente ")
+    click_button(driver, "Siguiente ")
+    click_button(driver, " Anterior")
+    click_button(driver, "Gran Cope")
+    click_button(driver, "1")
+    click_button(driver, "Finalizar pedidos individuales")
+    go_to_group_chat(driver, "PediTest")
+    click_button(driver, "Finalizar pedido")
 
     # Verificamos que se realizo el pedido de 1 Gran Cope
-    message = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//div[@class="text-content clearfix with-meta"][@dir="auto"]'))
-    )
-    message_text = message[-1].text
+    message_text = get_the_last_message_text(driver)
 
     assert contains(message_text, "Gran Cope: 1")
 
+
     # TEST GENERANDO UN PEDIDO MODIFICANDOLO EN EL PROCESO Y AL FINALIZARLO
-    # Enviamos el comando para iniciar un pedido
-    message_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@dir="auto"]'))
-    )
-    message_box.send_keys("/iniciar_pedido")
-    message_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    
-    # Seleccionamos Contactar al bot
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Contactar bot"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos Realizar pedido individual
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Realizar pedido individual"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
+    send_command(driver, "/iniciar_pedido")
+    click_button(driver, "Contactar bot")
+    click_button(driver, "Realizar pedido individual")
     # Seleccionamos restaurante y volvemos para modificar
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Unq King"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Volver a selección de restaurantes"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Unqtaza"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos producto y volvemos para modificar utilizando tambien la paginacion
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Milanesa De Cerdo"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Volver a selección de productos"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Milanesa De Pollo"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos cantidad
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="5"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
+    click_button(driver, "Unq King")
+    click_button(driver, "Volver a selección de restaurantes")
+    click_button(driver, "Unqtaza")
+    # Seleccionamos producto y volvemos para modificar
+    click_button(driver, "Milanesa De Cerdo")
+    click_button(driver, "Volver a selección de productos")
+    click_button(driver, "Milanesa De Pollo")
+    click_button(driver, "5")
     # Modificamos el producto y la cantidad
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Modificar producto"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Milanesa De Cerdo"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Modificar cantidad"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="2"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Seleccionamos Finalizar pedidos individuales
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Finalizar pedidos individuales"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
-
-    # Volvemos al chat del grupo
-    search_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//input[@placeholder="Search"]'))
-    )
-    search_box.send_keys("@PediTest")
-    search_box.send_keys(Keys.RETURN)
-    time.sleep(3)
-    search_box.send_keys(Keys.RETURN)
-
-    # Seleccionamos Finalizar pedido
-    button = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//button[@class="Button tiny primary has-ripple" and .//span[text()="Finalizar pedido"]]'))
-    )
-    button[-1].click()
-    time.sleep(3)
+    click_button(driver, "Modificar producto")
+    click_button(driver, "Milanesa De Cerdo")
+    click_button(driver, "Modificar cantidad")
+    click_button(driver, "2")
+    click_button(driver, "Finalizar pedidos individuales")
+    go_to_group_chat(driver, "PediTest")
+    click_button(driver, "Finalizar pedido")
 
     # Verificamos que se realizo el pedido de 2 Milanesa De Cerdo
-    message = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//div[@class="text-content clearfix with-meta"][@dir="auto"]'))
-    )
-    message_text = message[-1].text
+    message_text = get_the_last_message_text(driver)
 
     assert contains(message_text, "Milanesa De Cerdo: 2")
 
+
     # TEST PEDIMOS EL HISTORIAL Y VEMOS QUE ESTEN LOS 3 PEDIDOS HECHOS
     # Enviamos el comando para ver el historial
-    message_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@dir="auto"]'))
-    )
-    message_box.send_keys("/historial_de_pedidos")
-    message_box.send_keys(Keys.RETURN)
-    time.sleep(3)
+    send_command(driver, "/historial_de_pedidos")
 
     # Verificamos que se realizaron los 3 pedidos
-    message = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//div[@class="text-content clearfix with-meta"][@dir="auto"]'))
-    )
-    message_text = message[-1].text
+    message_text = get_the_last_message_text(driver)
 
     assert contains(message_text, "Lomo Con Queso: 3")
     assert contains(message_text, "Gran Cope: 1")
