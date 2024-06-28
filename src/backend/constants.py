@@ -63,7 +63,7 @@ GROUP_DIDNT_ORDER_YET_MESSAGE = (
 USER_DIDNT_ORDER_YET_MESSAGE = "Todavía no hiciste ningún pedido desde este grupo..."
 USER_NOT_IN_GROUPS_YET_MESSAGE = "Todavía no estás dentro de ningun grupo en el que me hayan usado para hacer pedidos!"
 THERE_ARE_ON_GOING_ORDERS_MESSAGE = "Todavía hay gente que está armando su pedido por lo que no se puede finalizar...🙈"
-ON_GOING_ORDER_CANCELLED_MESSAGE = "Cancelaste este pedido ❌"
+ON_GOING_ORDER_CANCELLED_MESSAGE = "_Cancelaste este pedido_ ❌"
 
 # Texto de botones
 NEXT_BUTTON = "Siguiente ▶"
