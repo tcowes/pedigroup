@@ -27,7 +27,7 @@ from backend.service import (
     register_user_and_add_to_group_if_required,
     register_group_order, get_last_five_orders_from_group_as_string, get_user_groups,
     get_last_five_orders_from_user_in_group_as_string, get_group, get_paginated_products_by_restaurant, get_product,
-    count_restaurants_for_group, get_restaurant, get_paginated_restaurants_by_group
+    count_restaurants_for_group, get_restaurant, get_paginated_restaurants_by_group, delete_user_order
 )
 from django.core.management.base import BaseCommand
 
@@ -460,12 +460,40 @@ def modify_pedigroup_order(data_to_be_modified, data, group_id: int, order_id: i
     return pedigroup_order
 
 
+async def rollback_finished_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    order_id, group_id = query.data.removeprefix("retractar ").split("|")
+    order_id = int(order_id)
+    group_id = int(group_id)
+    user_id = query.from_user.id
+
+    current_user_orders[group_id][user_id] = [
+        order for order in current_user_orders.get(group_id).get(user_id) if order.id != order_id
+    ]
+    delete_user_order(order_id)
+    logger.info(f"Rollback for order {order_id} from user {user_id} in group {group_id} completed!")
+
+    await context.bot.edit_message_text(
+        text=ON_GOING_ORDER_CANCELLED_MESSAGE,
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id,
+        reply_markup=None,
+        parse_mode="Markdown"
+    )
+
+
 def show_modify_buttons(quantity, group_id, group_name, restaurant_id, pedigroup_product, pedigroup_order):
-    reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(MODIFY_PRODUCT_BUTTON,
-                              callback_data=f"modificar producto {restaurant_id}|{pedigroup_order.id}|{quantity}|{group_id}|{group_name}"),
-         InlineKeyboardButton(MODIFY_QUANTITY_BUTTON,
-                              callback_data=f"modificar cantidad {restaurant_id}|{pedigroup_order.id}|{pedigroup_product.id}|{group_id}|{group_name}")]
+    reply_markup = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            MODIFY_PRODUCT_BUTTON,
+            callback_data=f"modificar producto {restaurant_id}|{pedigroup_order.id}|{quantity}|{group_id}|{group_name}"
+        ),
+        InlineKeyboardButton(
+            MODIFY_QUANTITY_BUTTON,
+            callback_data=f"modificar cantidad {restaurant_id}|{pedigroup_order.id}|{pedigroup_product.id}|{group_id}|{group_name}"
+        ),
+    ],
+        [InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data=f"retractar {pedigroup_order.id}|{group_id}")]
     ])
 
     return reply_markup
@@ -674,7 +702,8 @@ def start_bot():
                       CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_initial_modify_product, pattern=r'^modificar producto(?:\s+(.*))?$'),
                       CallbackQueryHandler(show_modify_quantity, pattern=r'^modificar cantidad(?:\s+(.*))?$'),
-                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$')],
+                      CallbackQueryHandler(finalize_individual_order, pattern=r'^pedido finalizado(?:\s+(.*))?$'),
+                      CallbackQueryHandler(rollback_finished_order, pattern=r'^retractar(?:\s+(.*))?$')],
         states={
             MENU: [CallbackQueryHandler(show_initial_menu, pattern=r'^menu(?:\s+(.*))?$'),
                    CallbackQueryHandler(cancel_on_going_order, pattern=r'^cancelar(?:\s+(.*))?$'),
