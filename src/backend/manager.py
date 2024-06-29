@@ -30,10 +30,24 @@ class GroupOrderManager:
     async def add_currently_ordering_user(self, user_id, user_name, group_id, context: ContextTypes.DEFAULT_TYPE):
         self._groups[group_id][0].append((user_id, user_name))
         message_reference = self._message_references[group_id]
-        new_message = message_reference.message + f"\n{user_name} está haciendo su pedido... 🔁"
-        self._message_references[group_id].message = new_message
-        message_id = self._groups[group_id][1]
-        await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup)
+        new_message = message_reference.message.replace(
+            "Aun nadie realizo pedidos.",
+            "Están pidiendo:"
+        )
+        index_initial = new_message.find(f"{user_name} 🔁")
+        if index_initial == -1:
+            index_finish = new_message.find(f"{user_name} ✅")
+            new_message = self.update_message(user_name, new_message, index_finish)
+            self._message_references[group_id].message = new_message
+            message_id = self._groups[group_id][1]
+            await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup, parse_mode="Markdown")
+
+    def update_message(self, user_name, new_message: str, index_finish: int):
+        if index_finish == -1:
+            new_message = new_message + f"\n{user_name} 🔁"
+        else: 
+            new_message = new_message.replace(f"{user_name} ✅", f"{user_name} 🔁")
+        return new_message
 
     async def remove_currently_ordering_user(self, user_id, group_id, context: ContextTypes.DEFAULT_TYPE):
         if group_id not in self._groups:
@@ -48,9 +62,9 @@ class GroupOrderManager:
 
         message_reference = self._message_references[group_id]
         new_message = message_reference.message.replace(
-            f"{user_name_that_finished} está haciendo su pedido... 🔁",
-            f"{user_name_that_finished} finalizó su pedido ✅"
+            f"{user_name_that_finished} 🔁",
+            f"{user_name_that_finished} ✅"
         )
         self._message_references[group_id].message = new_message
         message_id = self._groups[group_id][1]
-        await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup)
+        await context.bot.edit_message_text(new_message, group_id, message_id, reply_markup=message_reference.markup, parse_mode="Markdown")

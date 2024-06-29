@@ -8,3 +8,4 @@ tzdata==2024.1
 python-telegram-bot==21.0.1
 factory-boy==3.3.0
 freezegun==1.5.1
+selenium==4.10.0
