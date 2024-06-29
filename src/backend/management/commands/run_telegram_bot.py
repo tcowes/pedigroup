@@ -273,7 +273,8 @@ def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id: i
         keyboard.append(
             [InlineKeyboardButton(BACK_TO_RESTAURANTS_BUTTON, callback_data=f"pedir NO|{group_id}|{group_name}")])
 
-    keyboard.append([InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data=f"cancelar {group_id}|{group_name}")])
+    if not modifier_mode:
+        keyboard.append([InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data=f"cancelar {group_id}|{group_name}")])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -415,8 +416,6 @@ async def show_modify_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
         keyboard.append([InlineKeyboardButton(i, callback_data=f"modificado {i}|{group_id}|{group_name}"),
                          InlineKeyboardButton(i + 1, callback_data=f"modificado {i + 1}|{group_id}|{group_name}"),
                          InlineKeyboardButton(i + 2, callback_data=f"modificado {i + 2}|{group_id}|{group_name}")])
-
-    keyboard.append([InlineKeyboardButton(CANCEL_ORDER_BUTTON, callback_data=f"cancelar {group_id}|{group_name}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await message_to_select_quantity(context, query, pedigroup_product, reply_markup)
