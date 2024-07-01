@@ -107,6 +107,10 @@ def get_group(group_id):
     return Group.objects.get(id_app=group_id)
 
 
+def delete_user_order(order_id):
+    Order.objects.get(id=order_id).delete()
+
+
 def get_product(product_id):
     return Product.objects.get(id=product_id)
 
