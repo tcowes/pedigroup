@@ -256,7 +256,7 @@ def show_menu_or_restaurant_page(context: ContextTypes.DEFAULT_TYPE, group_id: i
         restaurant_id = context.user_data['restaurant_id']
         products = [prod for prod in get_paginated_products_by_restaurant(restaurant_id, first_item, last_item)]
         for product in products:
-            keyboard.append([InlineKeyboardButton(product.name,
+            keyboard.append([InlineKeyboardButton(f"{product.name} - ${product.estimated_price}",
                                                   callback_data=f"{product.id}|{restaurant_id}|{group_id}|{group_name}")])
 
     previous_button = InlineKeyboardButton(PREVIOUS_BUTTON, callback_data=f"Anterior|{group_id}|{group_name}")
