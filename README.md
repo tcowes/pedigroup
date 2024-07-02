@@ -51,3 +51,21 @@ PediGroup está pensado en principio para toda persona que utilice Telegram como
 ### ¿Qué módulos incluye en una primera etapa y cómo se extendería a futuro?
 Este proyecto apunta a dejar configurado todo el backend para gestionar pedidos de comida en grupo, junto con una integración inicial para bots de Telegram. La
 idea es que pueda extenderse mediante integraciones a otros servicios de mensajería grupal, como WhatsApp, Discord, entre otros.
+
+##
+### Testing e2e
+Para poder ejecutar las pruebas de testing con Telegram se debe añadir un chromedriver.exe en la carpeta /test_e2e (o modificar la linea 9 del archivo test_e2e.py para que use su navegador favorito, por ejemplo firefox), el mismo debe ser la versión actual del navegador que se tenga instalado en el equipo.
+
+Para ver la versión actual del navegador se debe ir al apartado Configuración > Acerca de Chrome, se debería ver la siguiente información.
+
+![image](https://github.com/tcowes/pedigroup/assets/102646749/c416c404-db5d-4db6-b3be-315d2fcfde23)
+
+Se recomienda tener actualizado con la versión actual y descargar el driver de la misma desde la siguiente página https://googlechromelabs.github.io/chrome-for-testing/
+
+En el apartado Stable buscar el driver de su Sistema Operativo.
+
+![image](https://github.com/tcowes/pedigroup/assets/102646749/fa3346cf-d7b0-454d-b277-7fe0ba8d59ef)
+
+Levantar el servidor de Django y el bot con los comandos mencionados en el apartado ***¿Como levantar el proyecto?***
+
+Una vez se cuenta con el archivo, y con el servidor de Django y el bot levantados, pararse dentro de /test_e2e y ejecutar el comando ```python test_e2e.py```, se deberá loguear manualmente a una cuenta de Telegram durante el proceso y estar en el grupo PediTest, el cual es el utilizado durante las pruebas.
