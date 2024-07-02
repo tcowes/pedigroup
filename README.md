@@ -5,6 +5,9 @@ PediGroup es un bot de Telegram con el que las personas van a poder interactuar,
 - Lucas Ziegemann
 - Tomás Cowes
 
+## ▶️ Demo
+- [Demo en Youtube](https://www.youtube.com/watch?v=T82gkiOd_ao)
+
 ## ⚙️ Tecnologías
 - [Python 3.12.2](https://www.python.org/) 
 - [Django 5.0.3](https://www.djangoproject.com/)
